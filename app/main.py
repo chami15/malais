@@ -19,7 +19,7 @@ from starlette.routing import Route
 from app.banco import preparar, registrar
 from app.cerebro import pensar
 from app.config import config
-from app.ferramentas import FUNCOES
+#from app.ferramentas import FUNCOES
 
 
 async def saude(request: Request) -> JSONResponse:
