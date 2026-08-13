@@ -1,7 +1,13 @@
-"""O cérebro: recebe texto, decide quais ferramentas chamar, devolve resposta falada."""
+"""O cérebro: recebe texto, decide quais ferramentas chamar, devolve resposta falada.
+
+Fala com a Groq por HTTP puro, sem o SDK da OpenAI de propósito. O SDK arrasta
+o `jiter`, que é compilado em Rust e não tem wheel pronto pra todo ARM — num
+celular isso vira compilação de meia hora ou erro seco de instalação.
+A API é REST simples. Não precisamos de SDK pra um POST.
+"""
 import json
 
-from openai import OpenAI
+import httpx
 
 from app.config import config
 from app.ferramentas import ESQUEMAS, executar
@@ -19,10 +25,26 @@ Regras da sua resposta:
 """
 
 LIMITE_VOLTAS = 5  # trava de segurança contra loop infinito de ferramentas
+TIMEOUT = 30.0
 
 
-def _cliente() -> OpenAI:
-    return OpenAI(api_key=config.GROQ_API_KEY, base_url=config.GROQ_BASE_URL)
+def _chamar_llm(mensagens: list[dict]) -> dict:
+    resposta = httpx.post(
+        f"{config.GROQ_BASE_URL}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {config.GROQ_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": config.MODELO,
+            "messages": mensagens,
+            "tools": ESQUEMAS,
+            "temperature": 0.3,
+        },
+        timeout=TIMEOUT,
+    )
+    resposta.raise_for_status()
+    return resposta.json()["choices"][0]["message"]
 
 
 def pensar(texto: str) -> str:
@@ -31,32 +53,37 @@ def pensar(texto: str) -> str:
     if not config.tem_cerebro:
         return f"Modo eco. Você disse: {texto}"
 
-    cliente = _cliente()
     mensagens = [
         {"role": "system", "content": PERSONA},
         {"role": "user", "content": texto},
     ]
 
-    for _ in range(LIMITE_VOLTAS):
-        resposta = cliente.chat.completions.create(
-            model=config.MODELO,
-            messages=mensagens,
-            tools=ESQUEMAS,
-            temperature=0.3,
-        )
-        msg = resposta.choices[0].message
+    try:
+        for _ in range(LIMITE_VOLTAS):
+            msg = _chamar_llm(mensagens)
+            chamadas = msg.get("tool_calls") or []
 
-        if not msg.tool_calls:
-            return (msg.content or "").strip()
+            if not chamadas:
+                return (msg.get("content") or "").strip()
 
-        mensagens.append(msg)
-        for chamada in msg.tool_calls:
-            argumentos = json.loads(chamada.function.arguments or "{}")
-            resultado = executar(chamada.function.name, argumentos)
-            mensagens.append({
-                "role": "tool",
-                "tool_call_id": chamada.id,
-                "content": resultado,
-            })
+            mensagens.append(msg)
+            for chamada in chamadas:
+                argumentos = json.loads(chamada["function"].get("arguments") or "{}")
+                resultado = executar(chamada["function"]["name"], argumentos)
+                mensagens.append({
+                    "role": "tool",
+                    "tool_call_id": chamada["id"],
+                    "content": resultado,
+                })
 
-    return "Me embananei tentando resolver isso. Tenta de novo?"
+        return "Me embananei tentando resolver isso. Tenta de novo?"
+
+    except httpx.HTTPStatusError as erro:
+        codigo = erro.response.status_code
+        if codigo == 401:
+            return "Minha chave de API está inválida."
+        if codigo == 429:
+            return "Estourei o limite da API. Espera um pouco."
+        return f"A API respondeu erro {codigo}."
+    except httpx.RequestError:
+        return "Não consegui falar com a API. Confere a internet do servidor."
