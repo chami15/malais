@@ -131,6 +131,11 @@ O gpt-oss é modelo de raciocínio. Dois detalhes:
 - O raciocínio vem num campo `reasoning` separado, não misturado no `content`. Por isso
   ler `msg["content"]` continua correto e nada de cadeia de pensamento vaza pra fala.
 
+Medido no aparelho, agosto de 2026, com `ESFORCO_RACIOCINIO=low`: comando com uma
+ferramenta (duas idas à Groq) responde em **cerca de 1 segundo**. Nenhum raciocínio
+vazou pro texto falado. É a linha de base — quando a agenda entrar e somar uma chamada
+HTTP externa dentro do loop, é contra esse número que se compara.
+
 ---
 
 ## Como adicionar uma capacidade
