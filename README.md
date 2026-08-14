@@ -248,23 +248,45 @@ termux-wake-lock
 
 E no sistema: **Ajustes → Apps → Termux → Bateria → Sem restrições.**
 
-Pra subir sozinho no boot, o script já está pronto em `boot/malais.sh`. Copia ele pra
-pasta que o Termux:Boot lê — **no Termux, fora do Ubuntu**:
+Pra subir sozinho no boot, o script precisa ficar em `~/.termux/boot/` — que é do
+**Termux**, não do Ubuntu. O Termux:Boot é um app Android e não enxerga nada de dentro
+do proot.
+
+Sai do Ubuntu com `exit` (o prompt muda; `whoami` responde `root` dentro do Ubuntu e
+algo tipo `u0_a123` no Termux) e escreve o arquivo lá:
 
 ```bash
 mkdir -p ~/.termux/boot
-cp ~/malais/boot/malais.sh ~/.termux/boot/malais.sh
-chmod +x ~/.termux/boot/malais.sh
+nano ~/.termux/boot/malais.sh
 ```
 
-O caminho `~/malais` aí é o de dentro do proot; se não bater, abre o arquivo do
-repositório e copia o conteúdo na mão.
+Cola o conteúdo de `boot/malais.sh` deste repositório. São 5 linhas — mais rápido do
+que tentar copiar entre os dois sistemas de arquivos. Se quiser mesmo copiar, o projeto
+fica em `$PREFIX/var/lib/proot-distro/installed-rootfs/ubuntu/root/malais/`, mas esse
+caminho **só existe quando você está no Termux**: rodando de dentro do Ubuntu o
+`$PREFIX` até expande, e aí o erro diz que o diretório não existe.
 
-Ele grava a saída em `~/malais-boot.log`. Quando o servidor não subir depois de um
-reinício, esse arquivo é o único lugar que diz por quê — ninguém está olhando a tela
-na hora do boot.
+Depois, o passo que não é opcional:
 
-Reinicia o celular e confere: `/saude` tem que responder sem você abrir nada.
+```bash
+chmod +x ~/.termux/boot/malais.sh
+ls -l ~/.termux/boot/
+```
+
+O `ls -l` tem que mostrar `-rwx` no começo. **Script sem bit de execução é ignorado em
+silêncio** — sem erro, sem log, nada. É a causa número um de "fiz tudo certo e não subiu".
+
+A causa número dois: **abrir o app Termux:Boot uma vez**. Ele abre numa tela vazia e
+parece não fazer nada, mas é isso que autoriza o Android a entregar o evento de boot.
+
+O script grava a saída em `~/malais-boot.log` (no home do Termux). Quando o servidor não
+subir depois de um reinício, esse arquivo é o único lugar que diz por quê — ninguém está
+olhando a tela na hora do boot.
+
+Reinicia o celular e confere: `/saude` tem que responder sem você abrir nada. **Espera
+mais que 30 segundos** antes de concluir que falhou: o boot do Android já é lento, e só
+depois dele é que o Termux:Boot dispara, faz login no proot, ativa o venv e sobe o
+uvicorn. Passar de um minuto é normal.
 
 ## Passo 7 — Tailscale
 
@@ -279,6 +301,54 @@ sozinho, o que quebraria o atalho a cada semana. O `100.x.x.x` do Tailscale não
 
 A partir daqui o `MALAIS_TOKEN` é o que protege o endpoint de verdade — a rede deixou
 de ser só a sua Wi-Fi. Não roda com token vazio fora de teste local.
+
+O Tailscale usa a API de VPN do iOS, mas é **split tunnel**: só o tráfego pros endereços
+`100.x.x.x` entra no túnel. O resto da internet continua saindo direto, mesma rota e
+mesma velocidade. Não liga a opção **exit node** — essa sim jogaria tudo pelo túnel, e
+você não precisa dela.
+
+## Passo 8 — Atalho do iPhone
+
+Aqui o Malais deixa de ser um `curl` e vira uma coisa que você usa. Não precisa de
+código novo: o `/comando` já devolve `{"resposta": "..."}` e o app Atalhos faz o resto.
+
+Antes: pega o IP `100.x.x.x` do S20 FE no app do Tailscale, e o `MALAIS_TOKEN` do `.env`.
+
+No app **Atalhos**, cria um novo com quatro ações nessa ordem:
+
+**1. Ditar Texto** — nas opções, idioma **Português (Brasil)**. No padrão ele tenta
+entender seus comandos em inglês.
+
+**2. Obter Conteúdo do URL**
+
+| Campo | Conteúdo |
+|---|---|
+| URL | `http://100.x.x.x:8000/comando` — **texto puro, sem variável** |
+| Método | `POST` |
+| Cabeçalhos | `X-Malais-Token` → seu token |
+| Corpo da Solicitação | `JSON`, com um campo de chave `texto` e valor = variável **Texto Ditado** |
+
+O erro `couldn't convert from Rich Text to URL` significa que a variável do ditado foi
+parar no campo **URL**. O Atalhos encadeia as ações sozinho e enfia a saída da anterior
+na entrada da seguinte — apaga a variável do campo URL e digita o endereço na mão. O
+texto ditado vai no corpo JSON, não na URL.
+
+**3. Obter Valor do Dicionário** — chave `resposta`.
+
+**4. Falar Texto** — nas opções, idioma **Português (Brasil)**. Sem isso ele lê português
+com sotaque americano, porque herda o idioma do sistema.
+
+Vale baixar uma voz melhor em **Ajustes → Acessibilidade → Conteúdo Falado → Vozes →
+Português (Brasil)**: a padrão é comprimida e soa robótica, as "Aprimoradas" são bem
+melhores. Faça isso antes de considerar o Piper — tem chance de já resolver.
+
+Testa pelo botão de play do próprio app. Ele pede permissão de microfone e de
+reconhecimento de fala na primeira vez.
+
+Por último, **Ajustes → Acessibilidade → Toque → Toque nas Costas → Toque Duplo** e
+escolhe o atalho (os atalhos ficam no fim da lista, depois das funções do sistema).
+Deixa o Toque Triplo livre: o duplo dispara sozinho no bolso de vez em quando, e é bom
+ter pra onde mudar.
 
 ---
 
@@ -330,7 +400,15 @@ volta pro LLM em vez de derrubar a requisição. Ele lê, entende e tenta outro 
 
 ## Fase 2
 
-1. Google Calendar — OAuth e as ferramentas de agenda
-2. Voz própria com Piper rodando local no S20 FE
-3. Atalho do iPhone + Toque nas Costas
-4. WhatsApp via Baileys (com chip separado)
+O atalho do iPhone saiu antes do previsto, e virou o Passo 8 acima: não custava código
+nenhum e é o que faz o Malais deixar de depender de um PC com `curl`.
+
+O que sobra, sem ordem fixa:
+
+- **Ferramentas que só um servidor seu alcança** — consultar banco interno, ver o que
+  está rodando, checar serviço na rede. É o que justifica a arquitetura: conector de
+  assistente hospedado roda na nuvem do fornecedor e só enxerga endpoint público.
+- **Google Calendar** — OAuth e as ferramentas de agenda.
+- **Piper** — só se a voz do iOS não bastar. Provavelmente basta.
+- **WhatsApp via Baileys** — com chip separado, porque é API não oficial e tem risco de
+  banimento do número.
