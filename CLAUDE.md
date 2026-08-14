@@ -112,6 +112,25 @@ Detalhes que já mordem se forem mexidos sem cuidado:
 - **Todo comando é registrado** em `historico` pelo `banco.registrar()`. Esse log é
   a ferramenta principal de debug do comportamento do LLM.
 
+### Modelo
+
+`openai/gpt-oss-120b`, configurável por `MODELO`. O `llama-3.3-70b-versatile` que estava
+aqui antes foi desligado pela Groq em agosto de 2026 — vale a lição: **modelo deprecado
+quebra o servidor num dia em que ninguém mexeu no código**. Antes de culpar o código
+quando a API começar a dar 400 ou 404 do nada, confira
+`console.groq.com/docs/deprecations`.
+
+Requisito inegociável ao trocar de modelo: **tem que suportar tool calling**. Sem isso o
+`cerebro.py` inteiro deixa de funcionar — o Malais vira um chatbot que não executa nada.
+
+O gpt-oss é modelo de raciocínio. Dois detalhes:
+
+- `ESFORCO_RACIOCINIO` vira `reasoning_effort` no payload, e está em `low` de propósito:
+  o padrão da Groq é `medium`, que gasta segundos pensando até pra dizer que horas são.
+  O parâmetro só é enviado se estiver preenchido — modelo que não raciocina responde 400.
+- O raciocínio vem num campo `reasoning` separado, não misturado no `content`. Por isso
+  ler `msg["content"]` continua correto e nada de cadeia de pensamento vaza pra fala.
+
 ---
 
 ## Como adicionar uma capacidade
