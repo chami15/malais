@@ -116,8 +116,36 @@ Deve responder:
 
 ## Passo 5 — Ligar o cérebro
 
-Cria conta em `console.groq.com`, gera uma API key, cola no `.env` e reinicia o
-servidor. Testa do computador:
+Cria conta em `console.groq.com` e gera uma API key. **Não precisa de cartão** — o free
+tier serve de sobra pra uso pessoal. Cola no `.env`:
+
+```
+GROQ_API_KEY=gsk_...
+```
+
+O `MODELO` e o `ESFORCO_RACIOCINIO` já vêm certos do `.env.example`, não precisa mexer.
+
+Reinicia o servidor: `Ctrl+C` e `python run.py` de novo. O `.env` é lido uma vez, na
+subida — editar com o servidor rodando não muda nada.
+
+### Confere o `/saude` antes do curl
+
+```
+http://IP-DO-CELULAR:8000/saude
+```
+
+Tem que ter virado `"cerebro":"ligado"`. Se continuar `"modo eco"`, a chave não foi lida
+e o problema está no `.env`, não na Groq. Quase sempre é uma destas:
+
+- O arquivo não está na **raiz do projeto**, ao lado do `run.py`. É o único lugar onde
+  o `config.py` procura.
+- Ele ficou como `.env.example` mesmo, ou virou `.env.txt` — confere com `ls -a`.
+- Sobrou espaço em volta do `=`. É `GROQ_API_KEY=gsk_...`, sem espaço.
+
+Fazer essa checagem antes economiza tempo: se você for direto pro `curl` e der erro,
+você não sabe se é chave, rede, token ou ferramenta.
+
+### Agora sim, o comando
 
 ```bash
 curl -X POST http://IP-DO-CELULAR:8000/comando \
@@ -126,8 +154,48 @@ curl -X POST http://IP-DO-CELULAR:8000/comando \
   -d '{"texto":"anota que preciso comprar café"}'
 ```
 
-Agora ele responde de verdade e a anotação está no banco. Confirma com
-`{"texto":"o que eu anotei?"}`.
+O header `X-Malais-Token` é obrigatório se você preencheu o `MALAIS_TOKEN` no Passo 3.
+Sem ele a resposta é `401` — e é fácil confundir isso com "o cérebro não ligou".
+
+Confirma que gravou:
+
+```bash
+curl -X POST http://IP-DO-CELULAR:8000/comando \
+  -H "Content-Type: application/json" \
+  -H "X-Malais-Token: SEU_TOKEN" \
+  -d '{"texto":"o que eu anotei?"}'
+```
+
+Se ele responder falando do café, o loop inteiro funcionou: o LLM entendeu, escolheu a
+ferramenta, ela gravou no SQLite e a resposta voltou pronta pra ser falada. **Esse é o
+marco do Passo 5.**
+
+### Se der erro
+
+| Resposta | O que é |
+|---|---|
+| `401` do servidor | Falta o header `X-Malais-Token`, ou está diferente do `.env` |
+| "Minha chave de API está inválida" | A chave da Groq está errada — regenera no console |
+| "Estourei o limite da API" | Bateu o rate limit do free tier. Espera e tenta de novo |
+| "A API respondeu erro 400" ou `404` | Quase sempre é **modelo desligado**. Ver abaixo |
+| "Não consegui falar com a API" | O celular está sem internet, não é problema de chave |
+
+**Sobre modelo desligado:** a Groq aposenta modelo com prazo, e quando isso acontece o
+Malais para de responder num dia em que você não mexeu em nada. Já aconteceu uma vez —
+o `llama-3.3-70b-versatile`, que era o padrão do projeto, foi desligado em agosto de 2026.
+Se um dia começar a dar erro do nada, confere `console.groq.com/docs/deprecations` antes
+de procurar bug no código, e troca o `MODELO` no `.env`. O substituto precisa **suportar
+tool calling** — sem isso o Malais vira um chatbot que não executa nada.
+
+### Quanto dá pra usar de graça
+
+O limite que aperta primeiro é o de tokens por dia, que dá umas **100 conversas diárias**.
+Sobra pra uso pessoal.
+
+Vale saber por que isso encolhe com o tempo: toda requisição manda a persona e a descrição
+de **todas** as ferramentas, sempre. Quando a agenda e o WhatsApp entrarem, cada comando
+fica mais caro — inclusive "que horas são". Se um dia o limite apertar, a causa é essa,
+não o volume de uso. Os seus números reais estão em `console.groq.com/settings/limits`.
 
 ## Passo 6 — Não deixar o Android matar
 
