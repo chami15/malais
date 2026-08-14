@@ -35,6 +35,10 @@ class Config:
 
     FUSO = os.getenv("FUSO", "America/Sao_Paulo")
 
+    # Porta do servidor. Fica aqui, e não solta no run.py, pra ter um lugar só:
+    # o run.py sobe nela e o testar.py bate nela sem os dois poderem divergir.
+    PORTA = int(os.getenv("PORTA", "8000"))
+
     @property
     def tem_cerebro(self) -> bool:
         return bool(self.GROQ_API_KEY)

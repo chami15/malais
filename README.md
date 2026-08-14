@@ -147,69 +147,63 @@ você não sabe se é chave, rede, token ou ferramenta.
 
 ### Agora sim, o comando
 
-```bash
-curl -X POST http://IP-DO-CELULAR:8000/comando \
-  -H "Content-Type: application/json" \
-  -H "X-Malais-Token: SEU_TOKEN" \
-  -d '{"texto":"anota que preciso comprar café"}'
-```
+Abre **outra sessão do Termux** (o servidor tem que continuar rodando na primeira),
+entra no Ubuntu e roda:
 
-O header `X-Malais-Token` é obrigatório se você preencheu o `MALAIS_TOKEN` no Passo 3.
-Sem ele a resposta é `401` — e é fácil confundir isso com "o cérebro não ligou".
+```bash
+proot-distro login ubuntu
+cd ~/malais && source venv/bin/activate
+python testar.py anota que preciso comprar café
+```
 
 Confirma que gravou:
 
 ```bash
-curl -X POST http://IP-DO-CELULAR:8000/comando \
-  -H "Content-Type: application/json" \
-  -H "X-Malais-Token: SEU_TOKEN" \
-  -d '{"texto":"o que eu anotei?"}'
+python testar.py o que eu anotei
 ```
 
 Se ele responder falando do café, o loop inteiro funcionou: o LLM entendeu, escolheu a
 ferramenta, ela gravou no SQLite e a resposta voltou pronta pra ser falada. **Esse é o
 marco do Passo 5.**
 
-### Testando de um PC com Windows
+Sem argumento nenhum, o `testar.py` abre modo conversa: mostra o estado do cérebro e
+fica esperando você escrever, uma linha por vez.
 
-Os comandos acima são de shell Unix (Linux, macOS, ou o próprio Termux). No Windows eles
-falham por três motivos que não têm nada a ver com o Malais:
-
-- No PowerShell, `curl` é apelido de `Invoke-WebRequest`, que não entende `-H` nem `-d`.
-- A `\` de quebra de linha é sintaxe Unix. No PowerShell é crase, no CMD é `^`.
-- Mesmo chamando `curl.exe` direto, o PowerShell 5.1 remove as aspas duplas ao montar a
-  linha de comando. O JSON chega quebrado e o servidor devolve `{"erro":"JSON inválido."}`
-  — que parece bug do Malais e não é.
-
-No **PowerShell**, use o cliente nativo:
-
-```powershell
-$corpo = @{ texto = "anota que preciso comprar café" } | ConvertTo-Json
-
-Invoke-RestMethod -Uri "http://IP-DO-CELULAR:8000/comando" -Method Post `
-  -Headers @{ "X-Malais-Token" = "SEU_TOKEN" } `
-  -ContentType "application/json; charset=utf-8" `
-  -Body ([System.Text.Encoding]::UTF8.GetBytes($corpo))
+```bash
+python testar.py
 ```
 
-O `ConvertTo-Json` monta o corpo sem briga de aspas, e o `UTF8.GetBytes` é o que faz o
-acento de "café" chegar inteiro. Sem ele o PowerShell manda em Latin-1, o `é` vira um byte
-que não é UTF-8 válido e o servidor responde `{"erro":"JSON inválido."}` — mesma mensagem
-do problema de aspas acima, causa diferente. Num assistente que fala português isso
-apareceria em quase toda frase.
+Ele existe justamente pra tirar o `curl` do caminho. O token e a porta saem do `.env`
+sozinhos, não tem IP pra colar nem aspas pra escapar, e ele imprime **quanto tempo a
+resposta demorou** — que é o número que interessa, já que o orçamento é 5 segundos.
+Passou disso, ele avisa.
 
-Ou seja, `JSON inválido` no Windows quer dizer uma de duas coisas: aspas comidas pelo
-PowerShell, ou acento mandado fora de UTF-8. Se o texto do teste não tem acento, é aspas.
+### Testando de outro computador
 
-No **CMD**, o `curl.exe` funciona, mas tudo numa linha e com as aspas escapadas:
+Mesma coisa, passando o endereço do celular:
+
+```bash
+MALAIS_HOST=192.168.0.42 python testar.py que horas são
+```
+
+Se for de um PC com **Windows**, use o `testar.py` também — basta ter Python. Vale
+insistir nisso porque testar o endpoint na mão lá é mais chato do que parece:
+
+- No PowerShell, `curl` é apelido de `Invoke-WebRequest` e não entende `-H` nem `-d`.
+- A `\` de quebra de linha é sintaxe Unix. No PowerShell é crase, no CMD é `^`.
+- Mesmo chamando `curl.exe` direto, o PowerShell 5.1 remove as aspas duplas ao montar a
+  linha de comando, e o JSON chega quebrado.
+- Acento fora de UTF-8 vira byte inválido e o servidor recusa o corpo.
+
+As duas últimas dão a **mesma** mensagem, `{"erro":"JSON inválido."}`, o que parece bug
+do Malais e não é. Se você precisar mesmo de um comando cru — no CMD, tudo numa linha,
+aspas escapadas e sem acento:
 
 ```
 curl -X POST http://IP-DO-CELULAR:8000/comando -H "Content-Type: application/json" -H "X-Malais-Token: SEU_TOKEN" -d "{\"texto\":\"anota que preciso comprar cafe\"}"
 ```
 
-Sem acento de propósito: no CMD a codificação é briga que não vale a pena num teste.
-
-O `/saude` é GET simples e funciona em qualquer um dos dois — ou direto no navegador.
+O `/saude` é GET simples: funciona em qualquer shell e no navegador.
 
 ### Se der erro
 
@@ -286,6 +280,7 @@ de ser só a sua Wi-Fi. Não roda com token vazio fora de teste local.
 
 ```
 run.py               Lançador. É por aqui que o servidor sobe, sempre
+testar.py            Cliente de linha de comando, pra testar sem curl
 boot/malais.sh       Script do Termux:Boot
 app/
 ├── main.py          API. Um endpoint que importa: POST /comando

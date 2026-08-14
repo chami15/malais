@@ -9,7 +9,6 @@ raiz do projeto no path, então funciona de qualquer lugar:
 
     python ~/malais/run.py
 """
-import os
 import sys
 from pathlib import Path
 
@@ -18,9 +17,9 @@ sys.path.insert(0, str(RAIZ))
 
 import uvicorn  # noqa: E402
 
+from app.config import config  # noqa: E402
 from app.main import app  # noqa: E402
 
 if __name__ == "__main__":
-    porta = int(os.getenv("PORTA", "8000"))
-    print(f"Malais subindo em http://0.0.0.0:{porta}  (Ctrl+C pra parar)")
-    uvicorn.run(app, host="0.0.0.0", port=porta)
+    print(f"Malais subindo em http://0.0.0.0:{config.PORTA}  (Ctrl+C pra parar)")
+    uvicorn.run(app, host="0.0.0.0", port=config.PORTA)
