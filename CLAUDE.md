@@ -48,8 +48,9 @@ Servidor de pé no aparelho, `/saude` respondendo na rede local.
 malais/
 ├── run.py                    lançador — resolve o próprio path, roda de qualquer lugar
 ├── requirements.txt          4 diretos, 11 com transitivos, todos Python puro
-├── .env.example
+├── .env.example              contrato das variáveis — mexeu em config.py, atualize aqui
 ├── README.md                 guia de instalação no aparelho (Termux, proot, boot, Tailscale)
+├── boot/malais.sh            script do Termux:Boot, copiado pra ~/.termux/boot/
 └── app/
     ├── main.py               Starlette. GET /saude, POST /comando
     ├── cerebro.py            loop de tool calling contra a Groq via httpx
@@ -68,8 +69,17 @@ source venv/bin/activate
 python run.py          # PORTA=9000 python run.py pra trocar a porta
 ```
 
-`run.py` existe pra matar o `No module named app`: ele descobre a própria localização
-e põe a raiz no `sys.path`, então funciona rodando de `~`, de dentro de `app/`, de onde for.
+**`python run.py` é o único jeito de subir. Nunca `uvicorn app.main:app` na mão** — nem
+no README, nem no script de boot, nem em documentação nova. O `uvicorn` continua sendo o
+servidor, mas deixou de ser o comando, por três motivos:
+
+- `uvicorn app.main:app` só resolve o pacote se o diretório atual for a raiz. O boot roda
+  num shell que ninguém controla — é exatamente onde o `No module named app` aparece, e
+  onde ninguém está olhando a tela pra ver.
+- `PORTA` só é lida pelo `run.py`. Com o comando direto, a porta fica hardcoded em dois
+  lugares e eles divergem.
+- Ponto de entrada único: o que precisar rodar antes de subir (checar `.env`, warm-up do
+  Piper depois) entra ali e passa a valer pra todas as formas de subida.
 
 ### Endpoints
 
@@ -180,11 +190,13 @@ quebraria o atalho toda semana.
 
 ---
 
-## Pendências conhecidas
+## Operação no aparelho
 
-- Existe um `__init__.py` na **raiz** do repositório que é cópia velha do
-  `app/ferramentas/__init__.py` (sem `_descobrir()`, sem a trava de nome duplicado).
-  Não é importado por nada. É lixo de refatoração e deve ser apagado.
-- O `README.md` (Passo 4 e o script de boot do Passo 6) ainda manda subir com
-  `uvicorn app.main:app`. O jeito certo hoje é `python run.py`.
-- `.env.example` não documenta `BANCO` nem `PORTA`, que `config.py` e `run.py` já leem.
+O passo a passo completo está no `README.md`. O que importa saber ao mexer no código:
+
+- O Android mata processo em background. Três travas seguram o servidor: `termux-wake-lock`,
+  **Ajustes → Apps → Termux → Bateria → Sem restrições**, e o Termux:Boot.
+- O boot grava log em `~/malais-boot.log`. Quando o servidor não sobe depois de um
+  reinício, é o único lugar que diz por quê.
+- Fora da Wi-Fi de casa o acesso é por Tailscale (`100.x.x.x` fixo). Aí o `MALAIS_TOKEN`
+  passa a ser a única proteção real do endpoint — nada de token vazio.

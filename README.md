@@ -87,11 +87,16 @@ atalho do iPhone — sem gastar um centavo de API nem debugar duas coisas ao mes
 ## Passo 4 — Subir
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+python run.py
 ```
 
-O `--host 0.0.0.0` é o que faz ele aceitar conexão de fora do aparelho. Sem isso só o
-próprio celular enxerga.
+Sempre por aqui, nunca `uvicorn app.main:app` na mão. O `run.py` descobre a raiz do
+projeto sozinho — então funciona de qualquer diretório, inclusive do shell sem contexto
+que o Termux:Boot usa — e é ele que lê a `PORTA` do `.env`. Pra trocar a porta numa
+subida só: `PORTA=9000 python run.py`.
+
+Ele já sobe em `0.0.0.0`, que é o que faz o servidor aceitar conexão de fora do aparelho.
+Sem isso só o próprio celular enxerga.
 
 Testa no navegador do computador, mesma Wi-Fi:
 
@@ -134,15 +139,23 @@ termux-wake-lock
 
 E no sistema: **Ajustes → Apps → Termux → Bateria → Sem restrições.**
 
-Pra subir sozinho no boot, cria `~/.termux/boot/malais.sh` (no Termux, fora do Ubuntu):
+Pra subir sozinho no boot, o script já está pronto em `boot/malais.sh`. Copia ele pra
+pasta que o Termux:Boot lê — **no Termux, fora do Ubuntu**:
 
 ```bash
-#!/data/data/com.termux/files/usr/bin/sh
-termux-wake-lock
-proot-distro login ubuntu -- bash -c "cd ~/malais && source venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+mkdir -p ~/.termux/boot
+cp ~/malais/boot/malais.sh ~/.termux/boot/malais.sh
+chmod +x ~/.termux/boot/malais.sh
 ```
 
-E `chmod +x ~/.termux/boot/malais.sh`.
+O caminho `~/malais` aí é o de dentro do proot; se não bater, abre o arquivo do
+repositório e copia o conteúdo na mão.
+
+Ele grava a saída em `~/malais-boot.log`. Quando o servidor não subir depois de um
+reinício, esse arquivo é o único lugar que diz por quê — ninguém está olhando a tela
+na hora do boot.
+
+Reinicia o celular e confere: `/saude` tem que responder sem você abrir nada.
 
 ## Passo 7 — Tailscale
 
@@ -152,11 +165,19 @@ conta, e o celular ganha um IP fixo `100.x.x.x` que funciona de qualquer lugar.
 
 Sem abrir porta no roteador, sem IP público, sem expor nada pra internet.
 
+Instala antes de montar o atalho do iPhone, não depois: o IP local vem de DHCP e muda
+sozinho, o que quebraria o atalho a cada semana. O `100.x.x.x` do Tailscale não muda.
+
+A partir daqui o `MALAIS_TOKEN` é o que protege o endpoint de verdade — a rede deixou
+de ser só a sua Wi-Fi. Não roda com token vazio fora de teste local.
+
 ---
 
 ## Como o projeto está montado
 
 ```
+run.py               Lançador. É por aqui que o servidor sobe, sempre
+boot/malais.sh       Script do Termux:Boot
 app/
 ├── main.py          API. Um endpoint que importa: POST /comando
 ├── cerebro.py       Loop de tool calling. Recebe texto, devolve fala
