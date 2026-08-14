@@ -59,7 +59,7 @@ malais/
     └── ferramentas/
         ├── __init__.py       registro + descoberta automática de módulos
         ├── basico.py         data_e_hora
-        └── notas.py          anotar, listar_notas
+        └── notas.py          CRUD: anotar, listar, buscar, atualizar, apagar
 ```
 
 Subir:
@@ -171,6 +171,30 @@ Regras que a base já segue e devem continuar:
   (ver `listar_notas`).
 - **Nome duplicado estoura na subida de propósito.** Não silencie: ferramenta duplicada
   faz o LLM chamar a versão errada, e isso vira bug aleatório em vez de erro claro.
+
+### Identificar um registro por voz
+
+O CRUD das notas resolveu um problema que toda ferramenta de escrita vai reencontrar:
+o banco precisa de id, e ninguém fala "apaga a nota número sete" em voz alta.
+
+O padrão adotado: **listar e buscar devolvem o id no texto de retorno**, entre colchetes,
+com um aviso na descrição pra o LLM não falar o número. Quem lê aquele retorno é o LLM,
+não o usuário — então ele guarda o id, o usuário diz "apaga a do café", e o LLM chama
+`apagar_nota` com o id certo. O número vive entre o LLM e o banco.
+
+Duas consequências que devem valer pras próximas ferramentas destrutivas:
+
+- **A descrição manda descobrir o id antes e proíbe inventar.** Sem isso o LLM chuta.
+- **Apagar devolve o que foi apagado no texto de confirmação.** Ditado erra; ouvir
+  "apaguei a anotação: X" é a única chance de perceber na hora que foi a nota errada.
+
+### Coluna nova em banco que já existe
+
+`CREATE TABLE IF NOT EXISTS` não mexe em tabela existente, então coluna acrescentada
+depois entra em quem instalou hoje e **não** entra no aparelho que está de pé há meses —
+falha que não aparece em teste e só quebra em produção. Toda coluna nova vai em
+`_acrescentar_colunas()` no `banco.py`, que compara com o `PRAGMA table_info` e roda o
+`ALTER TABLE` que faltar.
 
 ---
 
