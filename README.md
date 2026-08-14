@@ -170,6 +170,47 @@ Se ele responder falando do café, o loop inteiro funcionou: o LLM entendeu, esc
 ferramenta, ela gravou no SQLite e a resposta voltou pronta pra ser falada. **Esse é o
 marco do Passo 5.**
 
+### Testando de um PC com Windows
+
+Os comandos acima são de shell Unix (Linux, macOS, ou o próprio Termux). No Windows eles
+falham por três motivos que não têm nada a ver com o Malais:
+
+- No PowerShell, `curl` é apelido de `Invoke-WebRequest`, que não entende `-H` nem `-d`.
+- A `\` de quebra de linha é sintaxe Unix. No PowerShell é crase, no CMD é `^`.
+- Mesmo chamando `curl.exe` direto, o PowerShell 5.1 remove as aspas duplas ao montar a
+  linha de comando. O JSON chega quebrado e o servidor devolve `{"erro":"JSON inválido."}`
+  — que parece bug do Malais e não é.
+
+No **PowerShell**, use o cliente nativo:
+
+```powershell
+$corpo = @{ texto = "anota que preciso comprar café" } | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://IP-DO-CELULAR:8000/comando" -Method Post `
+  -Headers @{ "X-Malais-Token" = "SEU_TOKEN" } `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([System.Text.Encoding]::UTF8.GetBytes($corpo))
+```
+
+O `ConvertTo-Json` monta o corpo sem briga de aspas, e o `UTF8.GetBytes` é o que faz o
+acento de "café" chegar inteiro. Sem ele o PowerShell manda em Latin-1, o `é` vira um byte
+que não é UTF-8 válido e o servidor responde `{"erro":"JSON inválido."}` — mesma mensagem
+do problema de aspas acima, causa diferente. Num assistente que fala português isso
+apareceria em quase toda frase.
+
+Ou seja, `JSON inválido` no Windows quer dizer uma de duas coisas: aspas comidas pelo
+PowerShell, ou acento mandado fora de UTF-8. Se o texto do teste não tem acento, é aspas.
+
+No **CMD**, o `curl.exe` funciona, mas tudo numa linha e com as aspas escapadas:
+
+```
+curl -X POST http://IP-DO-CELULAR:8000/comando -H "Content-Type: application/json" -H "X-Malais-Token: SEU_TOKEN" -d "{\"texto\":\"anota que preciso comprar cafe\"}"
+```
+
+Sem acento de propósito: no CMD a codificação é briga que não vale a pena num teste.
+
+O `/saude` é GET simples e funciona em qualquer um dos dois — ou direto no navegador.
+
 ### Se der erro
 
 | Resposta | O que é |
