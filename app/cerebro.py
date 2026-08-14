@@ -29,18 +29,25 @@ TIMEOUT = 30.0
 
 
 def _chamar_llm(mensagens: list[dict]) -> dict:
+    corpo = {
+        "model": config.MODELO,
+        "messages": mensagens,
+        "tools": ESQUEMAS,
+        "temperature": 0.3,
+    }
+
+    # Só vai no payload se estiver configurado: modelo que não raciocina
+    # rejeita o campo com 400, e aí o Malais fica mudo sem motivo aparente.
+    if config.ESFORCO_RACIOCINIO:
+        corpo["reasoning_effort"] = config.ESFORCO_RACIOCINIO
+
     resposta = httpx.post(
         f"{config.GROQ_BASE_URL}/chat/completions",
         headers={
             "Authorization": f"Bearer {config.GROQ_API_KEY}",
             "Content-Type": "application/json",
         },
-        json={
-            "model": config.MODELO,
-            "messages": mensagens,
-            "tools": ESQUEMAS,
-            "temperature": 0.3,
-        },
+        json=corpo,
         timeout=TIMEOUT,
     )
     resposta.raise_for_status()
