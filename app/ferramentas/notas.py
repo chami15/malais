@@ -40,6 +40,9 @@ def anotar(texto: str) -> str:
     },
 )
 def listar_notas(quantidade: int = 5) -> str:
+       # O LLM às vezes manda "5" em vez de 5. Sem essa conversão o SQLite recebe
+       # texto no LIMIT e devolve resultado errado ou erro.
+    quantidade = int(quantidade)
     with conexao() as con:
         linhas = con.execute(
             "SELECT texto, criada_em FROM notas ORDER BY id DESC LIMIT ?",
