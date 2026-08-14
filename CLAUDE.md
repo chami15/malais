@@ -47,7 +47,6 @@ Servidor de pé no aparelho, `/saude` respondendo na rede local.
 ```
 malais/
 ├── run.py                    lançador — resolve o próprio path, roda de qualquer lugar
-├── testar.py                 cliente de linha de comando (token e porta vêm do .env)
 ├── requirements.txt          4 diretos, 11 com transitivos, todos Python puro
 ├── .env.example              contrato das variáveis — mexeu em config.py, atualize aqui
 ├── README.md                 guia de instalação no aparelho (Termux, proot, boot, Tailscale)
@@ -77,21 +76,10 @@ servidor, mas deixou de ser o comando, por três motivos:
 - `uvicorn app.main:app` só resolve o pacote se o diretório atual for a raiz. O boot roda
   num shell que ninguém controla — é exatamente onde o `No module named app` aparece, e
   onde ninguém está olhando a tela pra ver.
-- A porta vem de `config.PORTA`, que o `run.py` usa pra subir e o `testar.py` pra bater.
-  Com o comando direto ela volta a ficar hardcoded na linha e diverge do `.env`.
+- `PORTA` só é lida pelo `run.py`. Com o comando direto, a porta fica hardcoded em dois
+  lugares e eles divergem.
 - Ponto de entrada único: o que precisar rodar antes de subir (checar `.env`, warm-up do
   Piper depois) entra ali e passa a valer pra todas as formas de subida.
-
-Pra exercitar o servidor, use o `testar.py` em vez de montar `curl` na mão:
-
-```bash
-python testar.py anota que preciso comprar café   # um comando
-python testar.py                                  # modo conversa
-MALAIS_HOST=192.168.0.42 python testar.py oi      # de outra máquina
-```
-
-Ele lê token e porta do `.env`, e imprime a duração de cada resposta no stderr —
-é o jeito mais rápido de ver se uma ferramenta nova estourou o orçamento de 5s.
 
 ### Endpoints
 
