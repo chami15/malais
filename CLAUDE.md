@@ -59,6 +59,7 @@ malais/
     └── ferramentas/
         ├── __init__.py       registro + descoberta automática de módulos
         ├── basico.py         data_e_hora
+        ├── celular.py        acao_no_celular — quem executa é o atalho
         └── notas.py          CRUD: anotar, listar, buscar, atualizar, apagar
 ```
 
@@ -84,7 +85,10 @@ servidor, mas deixou de ser o comando, por três motivos:
 ### Endpoints
 
 - `GET /saude` — status, se o cérebro está ligado, lista de ferramentas. Não gasta API.
-- `POST /comando` — `{"texto": "..."}` com header `X-Malais-Token`. Devolve `{"resposta": "..."}`.
+- `POST /comando` — `{"texto": "..."}` com header `X-Malais-Token`. Devolve
+  `{"resposta": "..."}`, e mais `"acao"` quando alguma ferramenta pediu algo ao aparelho.
+  **A chave `acao` só existe quando há ação** — é assim que o `Se` do atalho consegue
+  testar só se ela tem valor.
 
 Sem `GROQ_API_KEY` no `.env` o servidor entra em **modo eco**: repete o que recebeu.
 Serve pra testar rede, atalho do iPhone e infraestrutura sem gastar API nem debugar
@@ -187,6 +191,31 @@ Duas consequências que devem valer pras próximas ferramentas destrutivas:
 - **A descrição manda descobrir o id antes e proíbe inventar.** Sem isso o LLM chuta.
 - **Apagar devolve o que foi apagado no texto de confirmação.** Ditado erra; ouvir
   "apaguei a anotação: X" é a única chance de perceber na hora que foi a nota errada.
+
+### Ferramenta que age no aparelho, não no servidor
+
+O servidor não alcança o iPhone: iOS não deixa nada de fora disparar ação no aparelho.
+O que existe é o atalho lendo a resposta antes de falar. Então `acao_no_celular` não
+executa nada — ela **anexa um recado no JSON** e o `Se` do atalho executa do outro lado.
+
+Como ferramenta só devolve string (que é o que o LLM lê), o recado precisa de outro
+caminho. É o canal em `ferramentas/__init__.py`:
+
+- `marcar_acao()` / `acao_marcada()` / `limpar_acao()`, guardados em `threading.local`.
+  **Tem que ser por thread**: `pensar()` roda no threadpool do Starlette, e uma variável
+  de módulo comum faria duas requisições simultâneas trocarem de ação entre si.
+- `cerebro.responder()` limpa o canal, chama `pensar()` e recolhe o que sobrou. Existe
+  separado justamente porque ler do event loop — de fora da thread — daria sempre vazio.
+- `limpar_acao()` no começo não é zelo: thread do pool é reaproveitada, e sem isso a ação
+  de uma requisição vazaria pra próxima que caísse na mesma thread.
+
+**O custo dessa capacidade:** cada ação nova precisa de um ramo `Se` no atalho do iPhone.
+Não escala como o `@ferramenta`, que é só criar arquivo. Item em `ACOES` sem ramo no
+atalho faz o Malais dizer que acendeu a lanterna enquanto nada acontece — mentira
+convincente, pior que erro. Mexeu em `ACOES`, mexe no atalho.
+
+O `enum` no schema existe pelo mesmo motivo: sem ele o LLM inventa nome de ação, o atalho
+não acha o ramo, e nada acontece sem erro nenhum.
 
 ### Coluna nova em banco que já existe
 

@@ -11,11 +11,38 @@ a ferramenta simplesmente não existia e o assistente dizia que não sabia fazer
 """
 import importlib
 import pkgutil
+import threading
 from pathlib import Path
 from typing import Callable
 
 FUNCOES: dict[str, Callable] = {}
 ESQUEMAS: list[dict] = []
+
+# Canal pra ferramenta pedir algo ao aparelho que fez a requisição.
+#
+# O servidor não alcança o iPhone — não existe push. Mas o atalho lê a resposta
+# antes de falar, então dá pra mandar junto um recado que ele executa. Ferramenta
+# devolve string (o LLM lê), e string não serve pra isso: precisa de um campo
+# separado no JSON. Daí este canal.
+#
+# É threading.local porque pensar() roda no threadpool do Starlette: com uma
+# variável de módulo comum, duas requisições ao mesmo tempo trocariam de ação.
+_local = threading.local()
+
+
+def limpar_acao() -> None:
+    """Zera o canal. Thread do pool é reaproveitada — sem isso, a ação de uma
+    requisição vazaria pra próxima que caísse na mesma thread."""
+    _local.acao = None
+
+
+def marcar_acao(acao: str) -> None:
+    """Ferramenta chama pra pedir que o aparelho execute algo."""
+    _local.acao = acao
+
+
+def acao_marcada() -> str | None:
+    return getattr(_local, "acao", None)
 
 
 def ferramenta(nome: str, descricao: str, parametros: dict | None = None):

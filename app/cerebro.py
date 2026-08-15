@@ -6,11 +6,12 @@ celular isso vira compilação de meia hora ou erro seco de instalação.
 A API é REST simples. Não precisamos de SDK pra um POST.
 """
 import json
+from typing import NamedTuple
 
 import httpx
 
 from app.config import config
-from app.ferramentas import ESQUEMAS, executar
+from app.ferramentas import ESQUEMAS, acao_marcada, executar, limpar_acao
 
 PERSONA = """Você é o Malais, assistente pessoal do Bernardo.
 
@@ -26,6 +27,13 @@ Regras da sua resposta:
 
 LIMITE_VOLTAS = 5  # trava de segurança contra loop infinito de ferramentas
 TIMEOUT = 30.0
+
+
+class Resultado(NamedTuple):
+    """O que sai de uma volta completa: a fala, e o que o aparelho deve executar."""
+
+    resposta: str
+    acao: str | None = None
 
 
 def _chamar_llm(mensagens: list[dict]) -> dict:
@@ -94,3 +102,13 @@ def pensar(texto: str) -> str:
         return f"A API respondeu erro {codigo}."
     except httpx.RequestError:
         return "Não consegui falar com a API. Confere a internet do servidor."
+
+
+def responder(texto: str) -> Resultado:
+    """Uma volta completa: pensa e recolhe o que alguma ferramenta pediu ao aparelho.
+
+    Existe separado de `pensar()` porque o canal de ação é por thread, e `pensar()`
+    roda no threadpool. Lido do lado de fora — do event loop — viria sempre vazio.
+    """
+    limpar_acao()
+    return Resultado(pensar(texto), acao_marcada())

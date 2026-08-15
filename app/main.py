@@ -17,7 +17,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from app.banco import preparar, registrar
-from app.cerebro import pensar
+from app.cerebro import responder
 from app.config import config
 from app.ferramentas import FUNCOES
 
@@ -44,12 +44,17 @@ async def comando(request: Request) -> JSONResponse:
     if not texto:
         return JSONResponse({"resposta": "Não entendi nada. Repete?"})
 
-    # pensar() é bloqueante (HTTP pra Groq + SQLite). Sem o threadpool ele
+    # responder() é bloqueante (HTTP pra Groq + SQLite). Sem o threadpool ele
     # travaria o event loop e o servidor pararia de responder enquanto pensa.
-    resposta = await run_in_threadpool(pensar, texto)
-    await run_in_threadpool(registrar, texto, resposta)
+    resultado = await run_in_threadpool(responder, texto)
+    await run_in_threadpool(registrar, texto, resultado.resposta)
 
-    return JSONResponse({"resposta": resposta})
+    corpo = {"resposta": resultado.resposta}
+    if resultado.acao:
+        # A chave só aparece quando há ação, pra o "Se" do atalho poder testar
+        # simplesmente se ela tem valor.
+        corpo["acao"] = resultado.acao
+    return JSONResponse(corpo)
 
 
 @asynccontextmanager
