@@ -38,6 +38,23 @@ Se algum `.whl` baixado não terminar em `py3-none-any`, procure outra solução
 Vale principalmente pro Google Calendar: `google-auth` e afins são Python puro,
 mas confira a árvore inteira antes de commitar.
 
+O CI roda essa mesma checagem a cada push e reprova o commit — mas descobrir antes
+de subir é mais barato que descobrir com o build vermelho.
+
+## Antes de commitar
+
+```bash
+python verificar.py
+```
+
+Checagem de fumaça: ferramentas registradas, migração de banco antigo, CRUD, canal
+de ação, e o servidor respondendo. Usa banco temporário e modo eco — não encosta no
+seu `malais.db` nem gasta API. É o mesmo script que o CI roda.
+
+Ela existe porque o celular se atualiza puxando a `main`: commit quebrado derruba o
+único servidor, possivelmente com você longe dele. **Toda falha que já aconteceu de
+verdade deve virar uma checagem aqui** — é assim que o arquivo se paga.
+
 ---
 
 ## Estado atual — Fase 1 concluída
@@ -47,7 +64,9 @@ Servidor de pé no aparelho, `/saude` respondendo na rede local.
 ```
 malais/
 ├── run.py                    lançador — resolve o próprio path, roda de qualquer lugar
+├── verificar.py              checagem de fumaça — roda no CI e vale rodar antes de commitar
 ├── requirements.txt          4 diretos, 11 com transitivos, todos Python puro
+├── .github/workflows/        CI: só wheel py3-none-any + verificar.py a cada push
 ├── .env.example              contrato das variáveis — mexeu em config.py, atualize aqui
 ├── README.md                 guia de instalação no aparelho (Termux, proot, boot, Tailscale)
 ├── boot/malais.sh            script do Termux:Boot, copiado pra ~/.termux/boot/

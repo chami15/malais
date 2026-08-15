@@ -1,0 +1,41 @@
+"on":
+  push:
+    branches: [main]
+  pull_request:
+
+name: Verificação
+
+# O celular se atualiza sozinho puxando a main. Então o que quebra aqui é o que
+# derrubaria o servidor lá — de preferência antes de ele puxar.
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Mesma versão do aparelho. Divergir aqui esconde justamente o tipo de
+          # incompatibilidade que a gente quer pegar antes do deploy.
+          python-version: "3.14"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Só dependência Python pura
+        # A restrição número um do projeto: no Ubuntu proot em ARM, wheel compilado
+        # não existe pronto e o pip cai pra buildar do zero — o que falha ou demora
+        # meia hora no celular. Até agora isso dependia de alguém lembrar de conferir.
+        run: |
+          pip download --only-binary :all: -r requirements.txt -d /tmp/rodas
+          compiladas=$(ls /tmp/rodas | grep -v 'py3-none-any\.whl$' || true)
+          if [ -n "$compiladas" ]; then
+            echo "::error::Dependência com código compilado — não instala no aparelho:"
+            echo "$compiladas"
+            exit 1
+          fi
+          echo "$(ls /tmp/rodas | wc -l) wheels, todas py3-none-any."
+
+      - name: Fumaça
+        run: python verificar.py
