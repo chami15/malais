@@ -35,8 +35,25 @@ pip download --only-binary :all: -d /tmp/check <pacote>
 ```
 
 Se algum `.whl` baixado não terminar em `py3-none-any`, procure outra solução.
-Vale principalmente pro Google Calendar: `google-auth` e afins são Python puro,
-mas confira a árvore inteira antes de commitar.
+
+**O Google está fora, inclusive o `google-auth`** — medido, não suposto:
+
+| Pacote | O que arrasta |
+|---|---|
+| `google-api-python-client` | `protobuf`, `cryptography`, `cffi`, `charset-normalizer` |
+| `google-auth` | `cryptography` (Rust) e `cffi` (C) — e **não** é extra, é obrigatório |
+
+Uma versão anterior deste arquivo dizia que `google-auth` era Python puro. Não é.
+Confira a árvore, não a fama do pacote.
+
+O caminho pro Google Calendar é o mesmo que já foi feito pra Groq: **httpx direto na
+API REST**. O fluxo de refresh token não precisa de criptografia nenhuma — é um POST
+com `client_id`, `client_secret` e `refresh_token` pro endpoint de token, e depois
+`Bearer` nas chamadas. Quem precisa de RSA é o fluxo de service account, que não é o
+nosso caso.
+
+O CI roda essa mesma checagem a cada push e reprova o commit — mas descobrir antes
+de subir é mais barato que descobrir com o build vermelho.
 
 O CI roda essa mesma checagem a cada push e reprova o commit — mas descobrir antes
 de subir é mais barato que descobrir com o build vermelho.
@@ -210,6 +227,33 @@ Duas consequências que devem valer pras próximas ferramentas destrutivas:
 - **A descrição manda descobrir o id antes e proíbe inventar.** Sem isso o LLM chuta.
 - **Apagar devolve o que foi apagado no texto de confirmação.** Ditado erra; ouvir
   "apaguei a anotação: X" é a única chance de perceber na hora que foi a nota errada.
+
+### Ferramenta que fala com API de fora
+
+Serviço externo é a única coisa capaz de derrubar o Malais sem ninguém ter mexido no
+código. Quatro regras, e três delas o CI cobra sozinho.
+
+**Nada de I/O na importação.** `_descobrir()` importa todo módulo da pasta na subida.
+Ferramenta que lê arquivo de credencial ou bate na rede no topo do arquivo **impede o
+servidor inteiro de subir** quando aquilo falta — não fica sem a ferramenta, fica sem
+o Malais. Carregue token dentro da função, na primeira chamada.
+
+Isso o CI pega de graça: ele roda sem `.env` e sem credencial nenhuma, então
+importação que exige segredo derruba o build antes de derrubar o aparelho.
+
+**Timeout explícito em toda chamada.** Exceção o `executar()` já converte em texto, mas
+chamada *pendurada* não levanta exceção nenhuma — ela só espera, e o usuário fica parado
+ouvindo silêncio. Dimensione contra os 5 segundos de orçamento, lembrando que a volta
+inteira já gasta ~1s com as duas idas à Groq. (O `TIMEOUT = 30` do `cerebro.py` é teto
+pra conexão travada, não meta.)
+
+**Erro previsível vira frase.** Credencial vencida, cota estourada, serviço fora: trate
+e devolva texto que o LLM consiga usar. O `executar()` é rede de segurança, não desculpa
+pra não tratar.
+
+**`verificar.py` não pode depender de rede.** CI sem internet confiável é CI que ninguém
+respeita. Ferramenta nova entra na checagem pelo que dá pra testar sem sair da máquina:
+que ela registra, que converte tipo, que devolve frase quando falta configuração.
 
 ### Ferramenta que age no aparelho, não no servidor
 
