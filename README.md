@@ -350,6 +350,49 @@ escolhe o atalho (os atalhos ficam no fim da lista, depois das funções do sist
 Deixa o Toque Triplo livre: o duplo dispara sozinho no bolso de vez em quando, e é bom
 ter pra onde mudar.
 
+## Passo 9 — Atualizar sem estar do lado do celular
+
+Sem isso, toda alteração de código espera você estar fisicamente perto do aparelho.
+
+**SSH.** O `openssh` provavelmente já está instalado (é o que autentica o `git` no
+GitHub). Falta o servidor rodando. No Termux:
+
+```bash
+whoami          # anota o usuário, algo como u0_a123
+passwd          # define uma senha
+sshd            # sobe o servidor SSH
+```
+
+Do PC: `ssh -p 8022 u0_a123@100.x.x.x` — o Termux usa a porta 8022, não a 22. O
+`boot/malais.sh` já sobe o `sshd` junto no boot, então isso sobrevive a reinício.
+
+Vale trocar senha por chave depois. Como o Tailscale já limita quem alcança a porta,
+senha resolve por enquanto.
+
+**O script de atualização.** Copia junto com o de boot, também pro Termux:
+
+```bash
+cp ~/malais/boot/atualizar.sh ~/atualizar.sh    # caminho de dentro do Ubuntu
+chmod +x ~/atualizar.sh
+```
+
+Aí atualizar de qualquer lugar vira:
+
+```bash
+sh ~/atualizar.sh
+```
+
+Ele puxa a `main`, reinicia, **espera o `/saude` responder, e volta pro commit anterior
+se não responder**. Esse último pedaço é o que importa: o celular é o único servidor, e
+sem ele um commit ruim te deixaria sem Malais e sem como consertar de longe.
+
+Saídas: `0` atualizou (ou já estava em dia), `1` o commit novo não sobe e voltou pro
+anterior, `2` não sobe nem no anterior — aí não é o código, é `.env`, rede ou venv, e o
+`~/malais-boot.log` diz qual.
+
+O `git pull` é `--ff-only` de propósito. Se a `main` divergir do que está no aparelho,
+ele para e avisa em vez de resolver merge sozinho num servidor que ninguém está olhando.
+
 ---
 
 ## Como o projeto está montado

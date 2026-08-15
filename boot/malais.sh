@@ -14,6 +14,14 @@
 # Impede o Android de suspender o processo quando a tela apaga.
 termux-wake-lock
 
+# SSH, pra você alcançar o aparelho pelo Tailscale e rodar o atualizar.sh sem
+# estar do lado dele. É a saída de emergência quando um deploy dá errado.
+#
+# O `command -v` não é frescura: se o openssh não estiver instalado, sem essa
+# guarda o boot script morreria aqui e o Malais nem subiria — trocar o servidor
+# inteiro por um conforto de acesso seria péssimo negócio.
+command -v sshd >/dev/null && sshd
+
 # O log é a única forma de saber por que não subiu, já que no boot ninguém
 # está olhando a tela.
 proot-distro login ubuntu -- bash -c '
