@@ -168,6 +168,7 @@ def servidor_responde() -> None:
         saude = cliente.get("/saude")
         conferir(saude.status_code == 200, "/saude responde 200")
         conferir(saude.json()["cerebro"] == "modo eco", "sem chave, entra em modo eco")
+        conferir(saude.json().get("modelo"), "/saude diz qual modelo está valendo")
 
         eco = cliente.post("/comando", json={"texto": "oi"})
         conferir("Modo eco" in eco.json()["resposta"], "/comando responde em modo eco")

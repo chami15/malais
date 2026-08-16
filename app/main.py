@@ -27,6 +27,11 @@ async def saude(request: Request) -> JSONResponse:
     return JSONResponse({
         "status": "ok",
         "cerebro": "ligado" if config.tem_cerebro else "modo eco",
+        # Qual modelo está valendo de verdade. O .env ganha do padrão do config.py,
+        # então "o que eu acho que está rodando" já divergiu do que rodava — e a
+        # Groq aposenta modelo com prazo. Conferir do navegador é mais rápido que
+        # abrir terminal e ler o .env.
+        "modelo": config.MODELO,
         "ferramentas": sorted(FUNCOES.keys()),
     })
 
