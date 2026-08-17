@@ -380,11 +380,25 @@ Qual IP usar depende de onde você está:
 Vale trocar senha por chave depois. Como o Tailscale já limita quem alcança a porta,
 senha resolve por enquanto.
 
-**O script de atualização.** Copia junto com o de boot, também pro Termux:
+**O script de atualização.** Copia pro Termux, junto com o de boot. O projeto vive
+dentro do rootfs do proot, e o caminho depende da versão do `proot-distro`:
 
 ```bash
-cp ~/malais/boot/atualizar.sh ~/atualizar.sh    # caminho de dentro do Ubuntu
-chmod +x ~/atualizar.sh
+# versões novas
+R=$PREFIX/var/lib/proot-distro/containers/ubuntu/rootfs/root/malais/boot
+# versões antigas
+R=$PREFIX/var/lib/proot-distro/installed-rootfs/ubuntu/root/malais/boot
+
+ls $R      # confirma qual dos dois existe antes de copiar
+cp $R/atualizar.sh ~/atualizar.sh
+cp $R/malais.sh ~/.termux/boot/malais.sh
+chmod +x ~/atualizar.sh ~/.termux/boot/malais.sh
+```
+
+Se nenhum dos dois existir, deixa o sistema achar — **no Termux, não no Ubuntu**:
+
+```bash
+find /data/data/com.termux/files -maxdepth 7 -type d -name malais 2>/dev/null
 ```
 
 Aí atualizar de qualquer lugar vira:
