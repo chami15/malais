@@ -165,6 +165,10 @@ def canal_de_acao() -> None:
 def servidor_responde() -> None:
     print("servidor")
     with TestClient(app) as cliente:
+        # Abrir a raiz no navegador é a primeira coisa que se faz. 404 ali parece
+        # servidor caído e manda a investigação pro lado errado.
+        conferir(cliente.get("/").status_code == 200, "a raiz responde em vez de dar 404")
+
         saude = cliente.get("/saude")
         conferir(saude.status_code == 200, "/saude responde 200")
         conferir(saude.json()["cerebro"] == "modo eco", "sem chave, entra em modo eco")

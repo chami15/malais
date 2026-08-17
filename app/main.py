@@ -22,6 +22,21 @@ from app.config import config
 from app.ferramentas import FUNCOES
 
 
+async def raiz(request: Request) -> JSONResponse:
+    """Diz o que existe aqui.
+
+    Sem esta rota, abrir o endereço do servidor no navegador — que é a primeira
+    coisa que qualquer um faz — devolve 404. E 404 parece servidor fora do ar,
+    quando na verdade é a prova de que ele está de pé: só quem está vivo responde.
+    Já custou uma investigação de boot que nunca tinha quebrado.
+    """
+    return JSONResponse({
+        "malais": "de pé",
+        "veja": "/saude",
+        "comandos": "POST /comando com {\"texto\": \"...\"}",
+    })
+
+
 async def saude(request: Request) -> JSONResponse:
     """Bate aqui pra saber se o servidor está de pé, sem gastar API."""
     return JSONResponse({
@@ -70,6 +85,7 @@ async def ciclo_de_vida(app: Starlette):
 
 app = Starlette(
     routes=[
+        Route("/", raiz, methods=["GET"]),
         Route("/saude", saude, methods=["GET"]),
         Route("/comando", comando, methods=["POST"]),
     ],
