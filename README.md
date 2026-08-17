@@ -363,8 +363,19 @@ passwd          # define uma senha
 sshd            # sobe o servidor SSH
 ```
 
-Do PC: `ssh -p 8022 u0_a123@100.x.x.x` — o Termux usa a porta 8022, não a 22. O
-`boot/malais.sh` já sobe o `sshd` junto no boot, então isso sobrevive a reinício.
+Do computador: `ssh -p 8022 u0_a123@IP-DO-CELULAR` — o Termux usa a porta **8022**, não
+a 22. O `boot/malais.sh` já sobe o `sshd` junto no boot, então isso sobrevive a reinício.
+
+Repare que 8022 é o SSH e 8000 é o Malais: dois serviços no mesmo aparelho, cada um na
+sua porta. Um não substitui o outro.
+
+Qual IP usar depende de onde você está:
+
+- **Na Wi-Fi de casa:** o IP local, `192.168.x.x`. Funciona sem instalar nada.
+- **De fora, ou com o `100.x.x.x`:** só se o Tailscale estiver **também no computador**.
+  Ter Tailscale no celular e no iPhone não faz o PC enxergar a tailnet — o `100.x.x.x`
+  simplesmente não resolve de lá, e o sintoma é `Connection timed out`, que parece
+  problema de SSH e não é.
 
 Vale trocar senha por chave depois. Como o Tailscale já limita quem alcança a porta,
 senha resolve por enquanto.
