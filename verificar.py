@@ -36,7 +36,7 @@ os.environ["MALAIS_TOKEN"] = ""      # sem autenticação nesta checagem
 
 from starlette.testclient import TestClient  # noqa: E402
 
-from app.banco import conexao, preparar  # noqa: E402
+from app.banco import conexao, preparar, registrar, ultimas_trocas  # noqa: E402
 from app.cerebro import responder  # noqa: E402
 from app.ferramentas import (  # noqa: E402
     FUNCOES,
@@ -121,6 +121,76 @@ def crud_das_notas() -> None:
     conferir(
         "não existe" in executar("apagar_nota", {"id": "99999"}).lower(),
         "id inexistente vira frase, não exceção",
+    )
+
+
+def memoria_curta() -> None:
+    """A memória tem que pegar o que acabou de acontecer e ignorar o resto.
+
+    Os dois limites importam por motivos diferentes: sem o de quantidade o prompt
+    cresce sem teto, e sem o de tempo a conversa da manhã volta à noite.
+    """
+    print("memória curta")
+    preparar()
+    with conexao() as con:
+        con.execute("DELETE FROM historico")
+        # Antiga demais: dentro do limite de quantidade, fora do de tempo.
+        con.execute(
+            "INSERT INTO historico (comando, resposta, criada_em) "
+            "VALUES ('conversa de ontem', 'resposta velha', datetime('now','localtime','-2 days'))"
+        )
+        con.execute(
+            "INSERT INTO historico (comando, resposta, criada_em) "
+            "VALUES ('sem resposta', '', datetime('now','localtime'))"
+        )
+    registrar("anota que preciso comprar café", "Anotação salva.")
+    registrar("que horas são", "São dez horas.")
+
+    trocas = ultimas_trocas(quantidade=3, minutos=30)
+    comandos = [t["comando"] for t in trocas]
+
+    conferir("conversa de ontem" not in comandos, "troca fora da janela de tempo fica de fora")
+    conferir("sem resposta" not in comandos, "troca sem resposta fica de fora")
+    conferir(
+        comandos == ["anota que preciso comprar café", "que horas são"],
+        f"vem em ordem cronológica (veio {comandos})",
+    )
+    conferir(
+        len(ultimas_trocas(quantidade=1, minutos=30)) == 1,
+        "respeita o limite de quantidade",
+    )
+    conferir(ultimas_trocas(quantidade=0, minutos=30) == [], "quantidade 0 desliga a memória")
+
+    # O que de fato chega no prompt: cada troca vira um par user/assistant antes
+    # da fala de agora.
+    import app.cerebro as cerebro
+
+    capturado = {}
+
+    def espiar(mensagens):
+        capturado["mensagens"] = mensagens
+        return {"content": "ok"}
+
+    original, cerebro._chamar_llm = cerebro._chamar_llm, espiar
+    tinha_chave, cerebro.config.GROQ_API_KEY = cerebro.config.GROQ_API_KEY, "falsa"
+    try:
+        cerebro.pensar("na verdade era chá")
+    finally:
+        cerebro._chamar_llm = original
+        cerebro.config.GROQ_API_KEY = tinha_chave
+
+    papeis = [m["role"] for m in capturado["mensagens"]]
+    conferir(
+        papeis == ["system", "user", "assistant", "user", "assistant", "user"],
+        f"histórico entra como pares user/assistant (veio {papeis})",
+    )
+    conferir(
+        capturado["mensagens"][-1]["content"] == "na verdade era chá",
+        "a fala de agora é a última mensagem",
+    )
+    conferir(
+        "café" in capturado["mensagens"][1]["content"],
+        "o comando anterior chegou no prompt",
     )
 
 
@@ -213,6 +283,7 @@ if __name__ == "__main__":
         ferramentas_registradas,
         banco_antigo_migra,
         crud_das_notas,
+        memoria_curta,
         canal_de_acao,
         servidor_responde,
         acao_chega_no_json,

@@ -10,6 +10,7 @@ from typing import NamedTuple
 
 import httpx
 
+from app.banco import ultimas_trocas
 from app.config import config
 from app.ferramentas import ESQUEMAS, acao_marcada, executar, limpar_acao
 
@@ -68,10 +69,15 @@ def pensar(texto: str) -> str:
     if not config.tem_cerebro:
         return f"Modo eco. Você disse: {texto}"
 
-    mensagens = [
-        {"role": "system", "content": PERSONA},
-        {"role": "user", "content": texto},
-    ]
+    mensagens = [{"role": "system", "content": PERSONA}]
+
+    # Memória curta. O registrar() só grava depois que esta volta termina, então
+    # o comando de agora ainda não está aqui — não tem risco de se repetir.
+    for troca in ultimas_trocas(config.MEMORIA_VOLTAS, config.MEMORIA_MINUTOS):
+        mensagens.append({"role": "user", "content": troca["comando"]})
+        mensagens.append({"role": "assistant", "content": troca["resposta"]})
+
+    mensagens.append({"role": "user", "content": texto})
 
     try:
         for _ in range(LIMITE_VOLTAS):

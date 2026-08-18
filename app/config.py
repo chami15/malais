@@ -35,6 +35,16 @@ class Config:
 
     FUSO = os.getenv("FUSO", "America/Sao_Paulo")
 
+    # Memória curta: quantas trocas anteriores entram no prompt, e de quanto
+    # tempo atrás. Serve pra "na verdade era chá" funcionar depois de "anota que
+    # preciso comprar café" — não pra lembrar da semana passada.
+    #
+    # Os dois limites juntos de propósito: a quantidade segura o custo (cada
+    # troca viaja em toda chamada), e os minutos evitam que a conversa da manhã
+    # volte à noite. MEMORIA_VOLTAS=0 desliga.
+    MEMORIA_VOLTAS = int(os.getenv("MEMORIA_VOLTAS", "3"))
+    MEMORIA_MINUTOS = int(os.getenv("MEMORIA_MINUTOS", "30"))
+
     @property
     def tem_cerebro(self) -> bool:
         return bool(self.GROQ_API_KEY)

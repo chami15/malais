@@ -152,6 +152,48 @@ Detalhes que já mordem se forem mexidos sem cuidado:
 - **Todo comando é registrado** em `historico` pelo `banco.registrar()`. Esse log é
   a ferramenta principal de debug do comportamento do LLM.
 
+### Memória curta
+
+Antes de mandar a fala de agora, `pensar()` carrega as últimas trocas do `historico` e
+as reinjeta como pares `user`/`assistant`. É o que faz "na verdade era chá" funcionar
+logo depois de "anota que preciso comprar café".
+
+Dois limites, e os dois precisam existir:
+
+- `MEMORIA_VOLTAS` (3) segura o custo. Cada troca vira duas mensagens que viajam em
+  **toda** chamada, somando ao `PERSONA` e aos `ESQUEMAS` que já vão sempre.
+- `MEMORIA_MINUTOS` (30) segura o absurdo. Sem ele, o que você falou de manhã volta
+  como contexto à noite e o Malais responde a uma conversa que já acabou.
+
+`MEMORIA_VOLTAS=0` desliga. Troca com resposta vazia fica de fora: erro e eco viram
+`assistant` sem conteúdo útil e só atrapalham.
+
+O `registrar()` roda **depois** da volta, em `main.py` — então o comando de agora ainda
+não está no histórico quando `pensar()` o consulta, e não tem risco de duplicar.
+
+### Banco
+
+Duas tabelas, ambas em `banco.py`:
+
+| Tabela | Pra que serve |
+|---|---|
+| `notas` | O que o usuário mandou anotar. `id`, `texto`, `criada_em`, `atualizada_em`. O `id` é o que as ferramentas de CRUD usam pra identificar a nota certa. |
+| `historico` | Toda troca: `comando`, `resposta`, `criada_em`. Nasceu como log de debug e hoje é também a fonte da memória curta. |
+
+Pra olhar o banco no aparelho, de dentro do Ubuntu:
+
+```bash
+sqlite3 malais.db        # apt install sqlite3, se faltar
+.tables
+.schema notas
+SELECT * FROM notas;
+SELECT comando, resposta FROM historico ORDER BY id DESC LIMIT 10;
+.quit
+```
+
+Sem instalar nada, dá pelo Python: `python -c "import sqlite3;
+print(sqlite3.connect('malais.db').execute('SELECT * FROM notas').fetchall())"`.
+
 ### Modelo
 
 `openai/gpt-oss-120b`, configurável por `MODELO`. O `llama-3.3-70b-versatile` que estava

@@ -62,3 +62,30 @@ def registrar(comando: str, resposta: str):
             "INSERT INTO historico (comando, resposta) VALUES (?, ?)",
             (comando, resposta),
         )
+
+
+def ultimas_trocas(quantidade: int, minutos: int) -> list[sqlite3.Row]:
+    """As últimas trocas recentes, em ordem cronológica, pra virar memória curta.
+
+    Dois limites, e os dois precisam existir:
+
+    - `quantidade` segura o custo. Cada troca vira duas mensagens no prompt, e
+      todas viajam em toda chamada à Groq.
+    - `minutos` segura o absurdo. Sem ele, o que você falou de manhã voltaria
+      como contexto à noite, e o Malais responderia a uma conversa que acabou.
+
+    Descarta resposta vazia: mensagem de erro e eco viram assistant turn sem
+    conteúdo útil, e só confundem quem lê depois.
+    """
+    if quantidade <= 0:
+        return []
+    with conexao() as con:
+        linhas = con.execute(
+            "SELECT comando, resposta FROM historico "
+            "WHERE resposta IS NOT NULL AND resposta != '' "
+            "  AND criada_em >= datetime('now', 'localtime', ?) "
+            "ORDER BY id DESC LIMIT ?",
+            (f"-{int(minutos)} minutes", int(quantidade)),
+        ).fetchall()
+    # Vem do mais novo pro mais velho por causa do LIMIT; o prompt precisa do contrário.
+    return list(reversed(linhas))
