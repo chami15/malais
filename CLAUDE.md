@@ -171,6 +171,12 @@ Dois limites, e os dois precisam existir:
 O `registrar()` roda **depois** da volta, em `main.py` — então o comando de agora ainda
 não está no histórico quando `pensar()` o consulta, e não tem risco de duplicar.
 
+Medido no aparelho com `MEMORIA_VOLTAS=3` e `gpt-oss-120b`: "anota que preciso comprar
+café" seguido de "na verdade era chá" **atualiza a nota existente**, não cria outra. O
+LLM encadeia sozinho memória → `buscar_notas` (pra achar o id) → `atualizar_nota`, e
+isso vem só das descrições. É a linha de base — se mexer na `PERSONA` ou nas descrições
+e esse fluxo parar de funcionar, foi a mudança.
+
 ### Banco
 
 Duas tabelas, ambas em `banco.py`:
