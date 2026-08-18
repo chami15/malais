@@ -96,7 +96,8 @@ malais/
         ├── __init__.py       registro + descoberta automática de módulos
         ├── basico.py         data_e_hora
         ├── celular.py        acao_no_celular — quem executa é o atalho
-        └── notas.py          CRUD: anotar, listar, buscar, atualizar, apagar
+        ├── notas.py          CRUD: anotar, listar, buscar, atualizar, apagar
+        └── servidor.py       estado_do_servidor — bateria, temperatura, disco
 ```
 
 Subir:
@@ -302,6 +303,19 @@ pra não tratar.
 **`verificar.py` não pode depender de rede.** CI sem internet confiável é CI que ninguém
 respeita. Ferramenta nova entra na checagem pelo que dá pra testar sem sair da máquina:
 que ela registra, que converte tipo, que devolve frase quando falta configuração.
+
+### Ferramenta que lê arquivo do sistema
+
+O `servidor.py` lê bateria e temperatura de `/sys`. Dois hábitos que valem pras
+próximas do tipo:
+
+- **Cada leitura é opcional.** Caminho de bateria e de sensor térmico muda de
+  aparelho pra aparelho, e dentro do proot alguns nem existem. O que falta some da
+  frase; não derruba a ferramenta.
+- **O caminho é constante de módulo, não literal dentro da função.** É o que deixa o
+  `verificar.py` apontar pra uma pasta de mentira com arquivos falsos. Sem isso, a
+  parte mais provável de estar errada no aparelho seria a única que nunca roda em
+  teste — o CI não tem bateria nem sensor.
 
 ### Ferramenta que age no aparelho, não no servidor
 

@@ -62,7 +62,7 @@ def ferramentas_registradas() -> None:
     print("ferramentas")
     esperadas = {
         "data_e_hora", "anotar", "listar_notas", "buscar_notas",
-        "atualizar_nota", "apagar_nota", "acao_no_celular",
+        "atualizar_nota", "apagar_nota", "acao_no_celular", "estado_do_servidor",
     }
     faltando = esperadas - set(FUNCOES)
     conferir(not faltando, f"todas registradas (faltou: {faltando or 'nada'})")
@@ -194,6 +194,51 @@ def memoria_curta() -> None:
     )
 
 
+def estado_do_servidor() -> None:
+    """Bateria e temperatura são lidas de /sys, que não existe neste container.
+
+    Sem apontar pra uma pasta de mentira, a parte mais provável de estar errada
+    no aparelho seria justamente a única que nunca roda em teste. E o oposto
+    também importa: leitura ausente tem que sumir da frase, não quebrar nada.
+    """
+    print("estado do servidor")
+    import app.ferramentas.servidor as servidor
+
+    preparar()
+    conferir("estado_do_servidor" in FUNCOES, "a ferramenta está registrada")
+
+    # Sem bateria nem sensor térmico: a frase sai mesmo assim.
+    vazio = Path(tempfile.mkdtemp())
+    bat_orig, term_orig = servidor.CAMINHO_BATERIA, servidor.CAMINHO_TERMICO
+    servidor.CAMINHO_BATERIA = servidor.CAMINHO_TERMICO = vazio
+    try:
+        frase = executar("estado_do_servidor", {})
+        conferir("Malais de pé há" in frase, "responde mesmo sem bateria nem sensor")
+        conferir("bateria" not in frase, "leitura ausente some da frase")
+    finally:
+        servidor.CAMINHO_BATERIA, servidor.CAMINHO_TERMICO = bat_orig, term_orig
+
+    # Agora com os arquivos que o celular tem.
+    falso = Path(tempfile.mkdtemp())
+    (falso / "battery").mkdir()
+    (falso / "battery" / "capacity").write_text("87\n")
+    (falso / "thermal_zone0").mkdir()
+    (falso / "thermal_zone0" / "temp").write_text("41200\n")   # milésimos de grau
+    (falso / "thermal_zone1").mkdir()
+    (falso / "thermal_zone1" / "temp").write_text("999999\n")  # absurdo, ignorar
+
+    servidor.CAMINHO_BATERIA = servidor.CAMINHO_TERMICO = falso
+    try:
+        conferir(servidor._bateria() == "87% de bateria", "lê a bateria de /sys")
+        conferir(servidor._temperatura() == "41 graus", "converte milésimos e descarta absurdo")
+    finally:
+        servidor.CAMINHO_BATERIA, servidor.CAMINHO_TERMICO = bat_orig, term_orig
+
+    conferir(servidor._duracao(30) == "menos de um minuto", "duração abaixo de um minuto")
+    conferir(servidor._duracao(3700) == "1 hora e 1 minuto", "singular sem o (s) no ouvido")
+    conferir(servidor._duracao(200000) == "2 dias e 7 horas", "plural em dias e horas")
+
+
 def canal_de_acao() -> None:
     """A ação não pode vazar entre requisições nem entre threads.
 
@@ -284,6 +329,7 @@ if __name__ == "__main__":
         banco_antigo_migra,
         crud_das_notas,
         memoria_curta,
+        estado_do_servidor,
         canal_de_acao,
         servidor_responde,
         acao_chega_no_json,
