@@ -339,8 +339,19 @@ texto ditado vai no corpo JSON, não na URL.
 com sotaque americano, porque herda o idioma do sistema.
 
 Vale baixar uma voz melhor em **Ajustes → Acessibilidade → Conteúdo Falado → Vozes →
-Português (Brasil)**: a padrão é comprimida e soa robótica, as "Aprimoradas" são bem
-melhores. Faça isso antes de considerar o Piper — tem chance de já resolver.
+Português (Brasil)**, escolhendo uma marcada como **Aprimorada** ou **Premium**. A que
+vem por padrão é comprimida e soa robótica; a diferença é grande.
+
+Se o iPhone estiver em inglês, o caminho é **Settings → Accessibility → Spoken Content →
+Voices**, e a lista aparece traduzida: procure **Portuguese (Brazil)** na letra P, não
+"Português". Quem procura pelo nome em português não acha e conclui que o pacote não
+existe. Cuidado pra não pegar Portuguese (Portugal), que tem outro sotaque.
+
+Baixar a voz não basta: a ação **Falar Texto** do atalho precisa apontar pra ela, senão
+continua herdando o idioma do sistema.
+
+Isso resolve a voz sem Piper. O Piper só passa a valer se você quiser uma voz específica
+ou que o próprio servidor gere o áudio.
 
 Testa pelo botão de play do próprio app. Ele pede permissão de microfone e de
 reconhecimento de fala na primeira vez.

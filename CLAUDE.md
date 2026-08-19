@@ -381,14 +381,17 @@ Fase 2, item 1. O que precisa existir:
    isso, mantenha.
 4. Fuso de `config.FUSO`.
 
-Depois disso, na ordem:
+Depois disso:
 
-- **Piper** rodando local no aparelho — o endpoint passa a devolver áudio em vez de texto.
-- **Atalho do iPhone** disparado por Toque nas Costas.
 - **WhatsApp** via Baileys, com chip separado (API não oficial, risco de banimento).
+- **Ferramentas que só um servidor seu alcança** — o que justifica a arquitetura.
 
-**Antes do atalho do iPhone, instalar Tailscale**: o IP local é DHCP e muda, o que
-quebraria o atalho toda semana.
+**Piper saiu da fila.** A voz aprimorada do iOS resolveu o som, e o Piper custaria ~250 MB
+de `onnxruntime` no aparelho, o modelo carregado em memória e latência somando ao
+orçamento de 5s. Medido: a árvore dele *tem* wheel aarch64 pronta pro Python 3.14, então
+instalaria sem compilar — mas entraria fora do `requirements.txt`, porque o CI roda em
+x86_64 e a regra do py3-none-any continua valendo pro núcleo. Só volta a fazer sentido se
+alguém quiser voz específica ou áudio gerado pelo próprio servidor.
 
 ---
 
