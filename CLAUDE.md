@@ -91,12 +91,12 @@ malais/
     ├── main.py               Starlette. GET /saude, POST /comando
     ├── cerebro.py            loop de tool calling contra a Groq via httpx
     ├── config.py             tudo vem do .env
-    ├── banco.py              SQLite: notas + histórico de comandos
+    ├── banco.py              SQLite: lembretes + histórico de comandos
     └── ferramentas/
         ├── __init__.py       registro + descoberta automática de módulos
         ├── basico.py         data_e_hora
         ├── celular.py        acao_no_celular — quem executa é o atalho
-        ├── notas.py          CRUD: anotar, listar, buscar, atualizar, apagar
+        ├── lembretes.py      CRUD: lembrar, listar, buscar, atualizar, apagar
         └── servidor.py       estado_do_servidor — bateria, temperatura, disco
 ```
 
@@ -173,10 +173,10 @@ O `registrar()` roda **depois** da volta, em `main.py` — então o comando de a
 não está no histórico quando `pensar()` o consulta, e não tem risco de duplicar.
 
 Medido no aparelho com `MEMORIA_VOLTAS=3` e `gpt-oss-120b`: "anota que preciso comprar
-café" seguido de "na verdade era chá" **atualiza a nota existente**, não cria outra. O
-LLM encadeia sozinho memória → `buscar_notas` (pra achar o id) → `atualizar_nota`, e
-isso vem só das descrições. É a linha de base — se mexer na `PERSONA` ou nas descrições
-e esse fluxo parar de funcionar, foi a mudança.
+café" seguido de "na verdade era chá" **atualiza o lembrete existente**, não cria outro.
+O LLM encadeia sozinho memória → `buscar_lembretes` (pra achar o id) →
+`atualizar_lembrete`, e isso vem só das descrições. É a linha de base — se mexer na
+`PERSONA` ou nas descrições e esse fluxo parar de funcionar, foi a mudança.
 
 ### Banco
 
@@ -184,8 +184,16 @@ Duas tabelas, ambas em `banco.py`:
 
 | Tabela | Pra que serve |
 |---|---|
-| `notas` | O que o usuário mandou anotar. `id`, `texto`, `criada_em`, `atualizada_em`. O `id` é o que as ferramentas de CRUD usam pra identificar a nota certa. |
+| `lembretes` | Coisa rápida que o usuário pediu pra lembrar. `id`, `texto`, `criada_em`, `atualizada_em`. O `id` é o que as ferramentas de CRUD usam pra identificar o lembrete certo. Chamava-se `notas` até o acervo entrar em cena — ver "Nota não é lembrete" abaixo. |
 | `historico` | Toda troca: `comando`, `resposta`, `criada_em`. Nasceu como log de debug e hoje é também a fonte da memória curta. |
+
+### Nota não é lembrete
+
+O acervo (outro projeto do dono, servidor separado numa VPS) também tem o conceito de
+"nota" — mas lá é texto que vira conhecimento permanente, indexado e conectado a um
+grafo. O que o Malais guarda em `lembretes` é o oposto: leve, descartável, feito pra ser
+lido uma vez e esquecido. Os nomes divergiram de propósito, pra não confundir os dois
+quando o Malais aprender a consultar o acervo — ver `ferramentas/acervo/`.
 
 Pra olhar o banco no aparelho, de dentro do Ubuntu:
 
@@ -257,25 +265,25 @@ Regras que a base já segue e devem continuar:
 - **Erro de ferramenta vira texto de volta pro LLM**, não exceção — ele lê, entende e
   tenta outro caminho. Ver `executar()`.
 - **Converta os tipos na entrada.** O LLM manda `"5"` onde você espera `5`
-  (ver `listar_notas`).
+  (ver `listar_lembretes`).
 - **Nome duplicado estoura na subida de propósito.** Não silencie: ferramenta duplicada
   faz o LLM chamar a versão errada, e isso vira bug aleatório em vez de erro claro.
 
 ### Identificar um registro por voz
 
-O CRUD das notas resolveu um problema que toda ferramenta de escrita vai reencontrar:
-o banco precisa de id, e ninguém fala "apaga a nota número sete" em voz alta.
+O CRUD dos lembretes resolveu um problema que toda ferramenta de escrita vai reencontrar:
+o banco precisa de id, e ninguém fala "apaga o lembrete número sete" em voz alta.
 
 O padrão adotado: **listar e buscar devolvem o id no texto de retorno**, entre colchetes,
 com um aviso na descrição pra o LLM não falar o número. Quem lê aquele retorno é o LLM,
-não o usuário — então ele guarda o id, o usuário diz "apaga a do café", e o LLM chama
-`apagar_nota` com o id certo. O número vive entre o LLM e o banco.
+não o usuário — então ele guarda o id, o usuário diz "apaga o do café", e o LLM chama
+`apagar_lembrete` com o id certo. O número vive entre o LLM e o banco.
 
 Duas consequências que devem valer pras próximas ferramentas destrutivas:
 
 - **A descrição manda descobrir o id antes e proíbe inventar.** Sem isso o LLM chuta.
 - **Apagar devolve o que foi apagado no texto de confirmação.** Ditado erra; ouvir
-  "apaguei a anotação: X" é a única chance de perceber na hora que foi a nota errada.
+  "apaguei o lembrete: X" é a única chance de perceber na hora que foi o errado.
 
 ### Ferramenta que fala com API de fora
 
@@ -349,6 +357,16 @@ depois entra em quem instalou hoje e **não** entra no aparelho que está de pé
 falha que não aparece em teste e só quebra em produção. Toda coluna nova vai em
 `_acrescentar_colunas()` no `banco.py`, que compara com o `PRAGMA table_info` e roda o
 `ALTER TABLE` que faltar.
+
+### Tabela renomeada
+
+Mesmo problema, forma mais grave: `CREATE TABLE IF NOT EXISTS lembretes` não enxerga uma
+tabela `notas` que já existia — ele criaria `lembretes` vazia do lado de `notas` cheia, e
+o aparelho continuaria de pé, só que **amnésico**, sem erro nenhum avisando. `_renomear_tabelas()`
+roda antes do `executescript`, faz o `ALTER TABLE ... RENAME TO` só se a origem existir e o
+destino ainda não, e por isso é seguro rodar em toda subida — inclusive num banco que já
+foi renomeado, e num banco que nunca teve o nome antigo. Verificado com um banco no
+formato exato do que roda no aparelho: nota preexistente sobrevive ao boot inteiro.
 
 ---
 

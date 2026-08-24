@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from app.config import config
 
 ESQUEMA = """
-CREATE TABLE IF NOT EXISTS notas (
+CREATE TABLE IF NOT EXISTS lembretes (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
     texto    TEXT NOT NULL,
     criada_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
@@ -31,6 +31,28 @@ def conexao():
         con.close()
 
 
+def _renomear_tabelas(con):
+    """Cuida das tabelas que mudaram de nome depois do banco já estar de pé.
+
+    `CREATE TABLE IF NOT EXISTS lembretes` não enxerga a tabela `notas` do
+    aparelho que já estava rodando — ele cria `lembretes` vazia do lado da
+    `notas` cheia, e todo o histórico daquele aparelho vira letra morta. Por
+    isso o rename roda ANTES do `executescript`: se `notas` existe e
+    `lembretes` ainda não, uma vira a outra, sem perder linha nenhuma.
+
+    Fica registrado aqui, e não junto de `_acrescentar_colunas`, porque é uma
+    operação de uma vez só — depois que rodar num aparelho, nunca mais roda de
+    novo ali (a tabela antiga já não existe).
+    """
+    renomeios = {"notas": "lembretes"}
+    existentes = {
+        linha["name"] for linha in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
+    for antigo, novo in renomeios.items():
+        if antigo in existentes and novo not in existentes:
+            con.execute(f"ALTER TABLE {antigo} RENAME TO {novo}")
+
+
 def _acrescentar_colunas(con):
     """Cuida das colunas que nasceram depois do banco.
 
@@ -40,7 +62,7 @@ def _acrescentar_colunas(con):
     pé há meses. Toda coluna adicionada depois da primeira versão entra aqui.
     """
     novas = {
-        "notas": {"atualizada_em": "TEXT"},
+        "lembretes": {"atualizada_em": "TEXT"},
     }
     for tabela, colunas in novas.items():
         existentes = {linha["name"] for linha in con.execute(f"PRAGMA table_info({tabela})")}
@@ -51,6 +73,7 @@ def _acrescentar_colunas(con):
 
 def preparar():
     with conexao() as con:
+        _renomear_tabelas(con)
         con.executescript(ESQUEMA)
         _acrescentar_colunas(con)
 

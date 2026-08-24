@@ -106,11 +106,14 @@ http://IP-DO-CELULAR:8000/saude
 
 O IP você pega em Ajustes → Conexões → Wi-Fi → toca na rede.
 
-Deve responder:
+Deve responder algo como:
 
 ```json
-{"status":"ok","cerebro":"modo eco","ferramentas":["anotar","data_e_hora","listar_notas"]}
+{"status":"ok","cerebro":"modo eco","modelo":"openai/gpt-oss-120b","ferramentas":["..."]}
 ```
+
+Com `"status":"ok"` e uma lista de ferramentas — o nome exato de cada uma vai mudando
+conforme o Malais ganha capacidade nova, então não se prenda à lista específica.
 
 **Se isso apareceu, o servidor está de pé.** É o marco da Fase 1.
 
@@ -440,11 +443,13 @@ app/
 ├── main.py          API. Um endpoint que importa: POST /comando
 ├── cerebro.py       Loop de tool calling. Recebe texto, devolve fala
 ├── config.py        Tudo que vem do .env
-├── banco.py         SQLite: notas + histórico de comandos
+├── banco.py         SQLite: lembretes + histórico de comandos
 └── ferramentas/
     ├── __init__.py  Registro. O decorator @ferramenta faz a mágica
     ├── basico.py    data_e_hora
-    └── notas.py     anotar, listar_notas
+    ├── celular.py   acao_no_celular — quem executa é o atalho
+    ├── lembretes.py lembrar, listar, buscar, atualizar, apagar
+    └── servidor.py  estado_do_servidor
 ```
 
 **Adicionar capacidade nova = escrever uma função e decorar.** Nada mais muda:
@@ -471,7 +476,7 @@ Duas decisões que valem entender:
 **SQLite, não Postgres.** Menos um serviço rodando no celular, menos uma coisa pra
 quebrar. Migra quando o Malais já estiver de pé — a troca fica isolada em `banco.py`.
 
-**Erro de ferramenta vira texto, não exceção.** Se `anotar` falhar, a mensagem de erro
+**Erro de ferramenta vira texto, não exceção.** Se `lembrar` falhar, a mensagem de erro
 volta pro LLM em vez de derrubar a requisição. Ele lê, entende e tenta outro caminho.
 É o que separa um assistente que se recupera de um que morre.
 
