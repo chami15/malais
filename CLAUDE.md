@@ -325,6 +325,33 @@ próximas do tipo:
   parte mais provável de estar errada no aparelho seria a única que nunca roda em
   teste — o CI não tem bateria nem sensor.
 
+### Integração externa que cresce: subpasta em vez de arquivo
+
+`ferramentas/acervo/` é o primeiro caso. O acervo é outro projeto do dono —
+servidor separado, numa VPS, na mesma tailnet — e a integração com ele só
+tende a crescer: busca hoje, ficha hoje, o que mais o acervo abrir depois. Um
+arquivo `acervo.py` cresceria pra sempre; uma subpasta deixa cada rota nova
+ser "cria um arquivo", igual ao resto de `ferramentas/`.
+
+Como funciona sem mexer no `_descobrir()` de fora: `pkgutil.iter_modules` já
+lista subpasta com `__init__.py` como um módulo normal, e `importlib.import_module`
+roda o `__init__.py` dela ao importar. Então a subpasta só precisa da própria
+versão local do mesmo padrão — que é o que `acervo/__init__.py` faz.
+
+`cliente.py` dentro da subpasta concentra o que toda rota do acervo repetiria:
+montar a URL, aplicar timeout, e traduzir erro de rede em frase — as mesmas
+regras de "ferramenta que fala com API de fora" valem aqui, só que num lugar
+compartilhado em vez de duplicadas em cada arquivo.
+
+**Use subpasta só quando a integração já tem mais de uma rota, ou vai ganhar
+em breve.** Pra uma chamada só, um arquivo direto em `ferramentas/` continua
+certo — é o que `basico.py`, `celular.py` e `servidor.py` fazem.
+
+O acervo hoje **não tem autenticação própria** (fica pra quando ele virar
+multiusuário — decisão documentada no backlog dele). Enquanto isso, é a rede
+— só quem está na tailnet alcança — que autentica, não uma chave. Quando o
+acervo ganhar token de entrada, ele entra no `cliente.py`, num lugar só.
+
 ### Ferramenta que age no aparelho, não no servidor
 
 O servidor não alcança o iPhone: iOS não deixa nada de fora disparar ação no aparelho.
