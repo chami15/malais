@@ -55,9 +55,6 @@ nosso caso.
 O CI roda essa mesma checagem a cada push e reprova o commit — mas descobrir antes
 de subir é mais barato que descobrir com o build vermelho.
 
-O CI roda essa mesma checagem a cada push e reprova o commit — mas descobrir antes
-de subir é mais barato que descobrir com o build vermelho.
-
 ## Antes de commitar
 
 ```bash
@@ -86,6 +83,9 @@ malais/
 ├── .github/workflows/        CI: só wheel py3-none-any + verificar.py a cada push
 ├── .env.example              contrato das variáveis — mexeu em config.py, atualize aqui
 ├── README.md                 guia de instalação no aparelho (Termux, proot, boot, Tailscale)
+├── docs/
+│   ├── concepcao.md          por que self-hosted, a restrição técnica, o arco das fases
+│   └── backlog.md            dívidas técnicas e decisões adiadas, datadas e por severidade
 ├── boot/malais.sh            script do Termux:Boot, copiado pra ~/.termux/boot/
 └── app/
     ├── main.py               Starlette. GET /saude, POST /comando
@@ -200,14 +200,14 @@ Pra olhar o banco no aparelho, de dentro do Ubuntu:
 ```bash
 sqlite3 malais.db        # apt install sqlite3, se faltar
 .tables
-.schema notas
-SELECT * FROM notas;
+.schema lembretes
+SELECT * FROM lembretes;
 SELECT comando, resposta FROM historico ORDER BY id DESC LIMIT 10;
 .quit
 ```
 
 Sem instalar nada, dá pelo Python: `python -c "import sqlite3;
-print(sqlite3.connect('malais.db').execute('SELECT * FROM notas').fetchall())"`.
+print(sqlite3.connect('malais.db').execute('SELECT * FROM lembretes').fetchall())"`.
 
 ### Modelo
 
