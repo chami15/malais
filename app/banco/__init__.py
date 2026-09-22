@@ -1,23 +1,18 @@
-"""SQLite. Simples de propósito — zero serviço extra rodando no celular."""
+"""SQLite. Simples de propósito — zero serviço extra rodando no celular.
+
+O schema vive em `esquema.sql`, ao lado deste arquivo — SQL de verdade, não
+string Python. O que fica em Python aqui é só o que exige lógica condicional
+(comparar o que já existe antes de alterar), que não dá pra expressar em SQL
+declarativo puro sem uma ferramenta de migração — e uma ferramenta de
+migração é peso demais pra duas tabelas.
+"""
 import sqlite3
 from contextlib import contextmanager
+from pathlib import Path
 
 from app.config import config
 
-ESQUEMA = """
-CREATE TABLE IF NOT EXISTS lembretes (
-    id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    texto    TEXT NOT NULL,
-    criada_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-);
-
-CREATE TABLE IF NOT EXISTS historico (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    comando   TEXT NOT NULL,
-    resposta  TEXT,
-    criada_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
-);
-"""
+ESQUEMA = (Path(__file__).resolve().parent / "esquema.sql").read_text()
 
 
 @contextmanager

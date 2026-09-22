@@ -34,13 +34,11 @@ _BANCO = Path(tempfile.mkdtemp()) / "verificar.db"
 os.environ["BANCO"] = str(_BANCO)
 os.environ["GROQ_API_KEY"] = ""      # modo eco: sem chamar a Groq
 os.environ["MALAIS_TOKEN"] = ""      # sem autenticação nesta checagem
-os.environ["ACERVO_BASE_URL"] = ""   # acervo "não configurado" nesta checagem
 
-import httpx  # noqa: E402
 from starlette.testclient import TestClient  # noqa: E402
 
 from app.banco import conexao, preparar, registrar, ultimas_trocas  # noqa: E402
-from app.cerebro import responder  # noqa: E402
+from app.llm.cerebro import responder  # noqa: E402
 from app.ferramentas import (  # noqa: E402
     FUNCOES,
     acao_marcada,
@@ -172,7 +170,7 @@ def memoria_curta() -> None:
 
     # O que de fato chega no prompt: cada troca vira um par user/assistant antes
     # da fala de agora.
-    import app.cerebro as cerebro
+    import app.llm.cerebro as cerebro
 
     capturado = {}
 
@@ -248,92 +246,6 @@ def estado_do_servidor() -> None:
     conferir(servidor._duracao(200000) == "2 dias e 7 horas", "plural em dias e horas")
 
 
-def acervo() -> None:
-    """As ferramentas do acervo não podem tentar rede quando ele não está
-    configurado, e todo erro de rede precisa virar frase — nunca exceção
-    vazando pro executar() genérico. Nada disto sai da máquina: o `httpx.get`
-    do cliente é trocado por um dublê que simula cada situação, do mesmo jeito
-    que `memoria_curta()` troca o `_chamar_llm` da Groq.
-    """
-    print("acervo")
-    conferir("acervo_buscar" in FUNCOES, "acervo_buscar está registrado")
-    conferir("acervo_consultar_ficha" in FUNCOES, "acervo_consultar_ficha está registrado")
-
-    from app.config import config
-    import app.ferramentas.acervo.cliente as cliente
-
-    original_url = config.ACERVO_BASE_URL
-    original_get = cliente.httpx.get
-
-    class _RespostaFalsa:
-        def __init__(self, status_code, corpo=None):
-            self.status_code = status_code
-            self._corpo = corpo or {}
-
-        def raise_for_status(self):
-            if self.status_code >= 400:
-                raise httpx.HTTPStatusError("erro", request=None, response=self)
-
-        def json(self):
-            return self._corpo
-
-    try:
-        # Sem URL configurada: nem tenta rede. É o estado do servidor até você
-        # preencher ACERVO_BASE_URL quando a VPS estiver de pé.
-        config.ACERVO_BASE_URL = ""
-        conferir(
-            "não está configurado" in executar("acervo_buscar", {"termo": "x"}),
-            "sem configuração, devolve frase sem tentar rede",
-        )
-
-        # Com URL configurada, mas toda chamada de rede simulada.
-        config.ACERVO_BASE_URL = "http://acervo.invalido.teste"
-
-        cliente.httpx.get = lambda *a, **k: (_ for _ in ()).throw(httpx.TimeoutException("x"))
-        conferir(
-            "demorou demais" in executar("acervo_buscar", {"termo": "x"}),
-            "timeout vira frase, não exceção",
-        )
-
-        cliente.httpx.get = lambda *a, **k: (_ for _ in ()).throw(httpx.ConnectError("x"))
-        conferir(
-            "Não consegui falar" in executar("acervo_buscar", {"termo": "x"}),
-            "servidor inatingível vira frase",
-        )
-
-        cliente.httpx.get = lambda *a, **k: _RespostaFalsa(404)
-        conferir(
-            "Não encontrei" in executar("acervo_buscar", {"termo": "x"}),
-            "404 vira frase específica",
-        )
-
-        cliente.httpx.get = lambda *a, **k: _RespostaFalsa(500)
-        conferir(
-            "erro 500" in executar("acervo_buscar", {"termo": "x"}),
-            "erro do servidor vira frase com o código",
-        )
-
-        # Caminho feliz: resposta bem formada, incluindo os dois formatos de
-        # plural — é fácil esquecer um dos dois ao mexer na frase.
-        cliente.httpx.get = lambda *a, **k: _RespostaFalsa(
-            200, {"total": 1, "videos": [{"titulo": "Docker do zero"}]}
-        )
-        conferir(
-            "1 ocorrência de" in executar("acervo_buscar", {"termo": "docker"}),
-            "singular sem o (s) no ouvido",
-        )
-        cliente.httpx.get = lambda *a, **k: _RespostaFalsa(
-            200, {"total": 3, "videos": [{"titulo": "A"}, {"titulo": "B"}]}
-        )
-        conferir(
-            "3 ocorrências de" in executar("acervo_buscar", {"termo": "docker"}),
-            "plural quando é mais de um",
-        )
-    finally:
-        cliente.httpx.get = original_get
-        config.ACERVO_BASE_URL = original_url
-
-
 def canal_de_acao() -> None:
     """A ação não pode vazar entre requisições nem entre threads.
 
@@ -401,7 +313,7 @@ def servidor_responde() -> None:
 def acao_chega_no_json() -> None:
     """A chave 'acao' precisa aparecer no JSON — é o que o 'Se' do atalho lê."""
     print("ação no JSON da resposta")
-    import app.cerebro as cerebro
+    import app.llm.cerebro as cerebro
 
     original = cerebro.pensar
     cerebro.pensar = lambda texto: (
@@ -425,7 +337,6 @@ if __name__ == "__main__":
         crud_dos_lembretes,
         memoria_curta,
         estado_do_servidor,
-        acervo,
         canal_de_acao,
         servidor_responde,
         acao_chega_no_json,

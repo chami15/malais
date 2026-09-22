@@ -441,9 +441,12 @@ run.py               Lançador. É por aqui que o servidor sobe, sempre
 boot/malais.sh       Script do Termux:Boot
 app/
 ├── main.py          API. Um endpoint que importa: POST /comando
-├── cerebro.py       Loop de tool calling. Recebe texto, devolve fala
 ├── config.py        Tudo que vem do .env
-├── banco.py         SQLite: lembretes + histórico de comandos
+├── llm/
+│   └── cerebro.py   Loop de tool calling. Recebe texto, devolve fala
+├── banco/
+│   ├── __init__.py  conexao, preparar, registrar, ultimas_trocas
+│   └── esquema.sql  os CREATE TABLE
 └── ferramentas/
     ├── __init__.py  Registro. O decorator @ferramenta faz a mágica
     ├── basico.py    data_e_hora
@@ -451,6 +454,9 @@ app/
     ├── lembretes.py lembrar, listar, buscar, atualizar, apagar
     └── servidor.py  estado_do_servidor
 ```
+
+Essa é a árvore da branch `dev`. A `main` ainda tem `cerebro.py` e `banco.py` soltos na
+raiz de `app/`, e também tem `ferramentas/acervo/` — integração pausada na `dev`.
 
 **Adicionar capacidade nova = escrever uma função e decorar.** Nada mais muda:
 
@@ -474,7 +480,7 @@ O LLM passa a saber que essa ferramenta existe e chama sozinho quando fizer sent
 Duas decisões que valem entender:
 
 **SQLite, não Postgres.** Menos um serviço rodando no celular, menos uma coisa pra
-quebrar. Migra quando o Malais já estiver de pé — a troca fica isolada em `banco.py`.
+quebrar. Migra quando o Malais já estiver de pé — a troca fica isolada em `app/banco/`.
 
 **Erro de ferramenta vira texto, não exceção.** Se `lembrar` falhar, a mensagem de erro
 volta pro LLM em vez de derrubar a requisição. Ele lê, entende e tenta outro caminho.

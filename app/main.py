@@ -17,7 +17,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from app.banco import preparar, registrar
-from app.cerebro import responder
+from app.llm.cerebro import responder
 from app.config import config
 from app.ferramentas import FUNCOES
 

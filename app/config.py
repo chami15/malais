@@ -45,30 +45,9 @@ class Config:
     MEMORIA_VOLTAS = int(os.getenv("MEMORIA_VOLTAS", "3"))
     MEMORIA_MINUTOS = int(os.getenv("MEMORIA_MINUTOS", "30"))
 
-    # Acervo pessoal de conhecimento, outro projeto do dono — servidor separado
-    # numa VPS, na mesma tailnet. Vazio quer dizer "ainda não configurado", e as
-    # ferramentas de app/ferramentas/acervo/ respondem com frase nesse caso, sem
-    # tentar rede nenhuma. Preencha com o endereço Tailscale quando a VPS subir:
-    # http://100.x.x.x:8010 (a porta é a que o acervo expõe por padrão).
-    #
-    # O acervo ainda não tem autenticação própria — fica pra quando ele virar
-    # multiusuário. Enquanto isso, é a rede (Tailscale) que autentica, não uma
-    # chave. Quando o acervo ganhar token de entrada, o header entra no
-    # cliente.py da integração, num lugar só.
-    ACERVO_BASE_URL = os.getenv("ACERVO_BASE_URL", "")
-
-    # Teto pra conexão travada, não meta — igual ao TIMEOUT do cerebro.py. Mas
-    # aqui o teto tem que ser mais apertado: esta chamada soma ao orçamento de
-    # 5s por cima do que as duas idas à Groq já gastam (~1s medido).
-    ACERVO_TIMEOUT = float(os.getenv("ACERVO_TIMEOUT", "4"))
-
     @property
     def tem_cerebro(self) -> bool:
         return bool(self.GROQ_API_KEY)
-
-    @property
-    def tem_acervo(self) -> bool:
-        return bool(self.ACERVO_BASE_URL)
 
 
 config = Config()

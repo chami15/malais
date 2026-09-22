@@ -89,9 +89,12 @@ malais/
 ├── boot/malais.sh            script do Termux:Boot, copiado pra ~/.termux/boot/
 └── app/
     ├── main.py               Starlette. GET /saude, POST /comando
-    ├── cerebro.py            loop de tool calling contra a Groq via httpx
     ├── config.py             tudo vem do .env
-    ├── banco.py              SQLite: lembretes + histórico de comandos
+    ├── llm/
+    │   └── cerebro.py        loop de tool calling contra a Groq via httpx
+    ├── banco/
+    │   ├── __init__.py       conexao, preparar, registrar, ultimas_trocas
+    │   └── esquema.sql       os CREATE TABLE — SQL de verdade, não string Python
     └── ferramentas/
         ├── __init__.py       registro + descoberta automática de módulos
         ├── basico.py         data_e_hora
@@ -99,6 +102,13 @@ malais/
         ├── lembretes.py      CRUD: lembrar, listar, buscar, atualizar, apagar
         └── servidor.py       estado_do_servidor — bateria, temperatura, disco
 ```
+
+> **Divergência entre branches:** a `dev` moveu `cerebro.py` pra `app/llm/` e `banco.py`
+> pra `app/banco/` (schema em `.sql`, lógica em `__init__.py`), e removeu a integração
+> com o acervo (`ferramentas/acervo/`) — pausada por decisão do dono, não por defeito.
+> A `main` ainda tem o layout antigo com o acervo dentro. Ao ler este arquivo, confira
+> em qual branch você está antes de confiar cegamente na árvore acima.
+
 
 Subir:
 
@@ -180,7 +190,11 @@ O LLM encadeia sozinho memória → `buscar_lembretes` (pra achar o id) →
 
 ### Banco
 
-Duas tabelas, ambas em `banco.py`:
+Duas tabelas. O schema (`CREATE TABLE`) vive em `app/banco/esquema.sql` — SQL de
+verdade, não string dentro de `.py`. A lógica que precisa de condicional (renomear
+tabela, acrescentar coluna) continua em `app/banco/__init__.py`, porque isso não dá
+pra expressar em SQL declarativo puro sem uma ferramenta de migração — peso
+desproporcional pra duas tabelas.
 
 | Tabela | Pra que serve |
 |---|---|
@@ -193,7 +207,9 @@ O acervo (outro projeto do dono, servidor separado numa VPS) também tem o conce
 "nota" — mas lá é texto que vira conhecimento permanente, indexado e conectado a um
 grafo. O que o Malais guarda em `lembretes` é o oposto: leve, descartável, feito pra ser
 lido uma vez e esquecido. Os nomes divergiram de propósito, pra não confundir os dois
-quando o Malais aprender a consultar o acervo — ver `ferramentas/acervo/`.
+quando o Malais consultar o acervo — a integração existe na `main` (`ferramentas/acervo/`),
+pausada na `dev` por decisão do dono, não por defeito. Ver "Integração externa que
+cresce" mais abaixo.
 
 Pra olhar o banco no aparelho, de dentro do Ubuntu:
 
@@ -327,6 +343,11 @@ próximas do tipo:
 
 ### Integração externa que cresce: subpasta em vez de arquivo
 
+**Pausada na `dev`, existe na `main`.** O acervo ainda está desestruturado e sem uso
+diário — o dono decidiu não gastar ciclo de desenvolvimento nisso por enquanto. A
+descrição abaixo documenta o padrão pra quando (ou se) a integração voltar; nenhum
+arquivo dela existe na `dev` hoje.
+
 `ferramentas/acervo/` é o primeiro caso. O acervo é outro projeto do dono —
 servidor separado, numa VPS, na mesma tailnet — e a integração com ele só
 tende a crescer: busca hoje, ficha hoje, o que mais o acervo abrir depois. Um
@@ -382,8 +403,9 @@ não acha o ramo, e nada acontece sem erro nenhum.
 `CREATE TABLE IF NOT EXISTS` não mexe em tabela existente, então coluna acrescentada
 depois entra em quem instalou hoje e **não** entra no aparelho que está de pé há meses —
 falha que não aparece em teste e só quebra em produção. Toda coluna nova vai em
-`_acrescentar_colunas()` no `banco.py`, que compara com o `PRAGMA table_info` e roda o
-`ALTER TABLE` que faltar.
+`_acrescentar_colunas()` em `app/banco/__init__.py`, que compara com o `PRAGMA table_info`
+e roda o `ALTER TABLE` que faltar. A coluna em si (o `CREATE TABLE` original) fica em
+`app/banco/esquema.sql` — só a lógica condicional é Python.
 
 ### Tabela renomeada
 
@@ -405,7 +427,7 @@ formato exato do que roda no aparelho: nota preexistente sobrevive ao boot intei
 - **Orçamento de latência: 5 segundos.** O usuário está parado esperando o celular falar.
   Ação lenta deve responder "beleza, fazendo" e executar em background.
 - SQLite foi escolha consciente — menos um serviço vivo no celular. Migrar pra Postgres
-  só depois que estabilizar, e a troca deve ficar isolada em `banco.py`.
+  só depois que estabilizar, e a troca deve ficar isolada em `app/banco/`.
 - Fuso vem de `config.FUSO` (`America/Sao_Paulo`). **Não hardcode.**
 - Segredo só no `.env`, que está no `.gitignore`. O `.env.example` é o contrato — se
   adicionar variável nova em `config.py`, adiciona lá também.
