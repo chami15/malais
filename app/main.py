@@ -20,6 +20,7 @@ from app.banco import preparar, registrar
 from app.llm.cerebro import responder
 from app.config import config
 from app.ferramentas import FUNCOES
+from app.painel import ROTAS as ROTAS_PAINEL
 
 
 async def raiz(request: Request) -> JSONResponse:
@@ -88,6 +89,7 @@ app = Starlette(
         Route("/", raiz, methods=["GET"]),
         Route("/saude", saude, methods=["GET"]),
         Route("/comando", comando, methods=["POST"]),
+        *ROTAS_PAINEL,
     ],
     lifespan=ciclo_de_vida,
 )

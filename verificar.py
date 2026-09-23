@@ -214,6 +214,15 @@ def estado_do_servidor() -> None:
     preparar()
     conferir("estado_do_servidor" in FUNCOES, "a ferramenta está registrada")
 
+    # _guardado() já ficou meses lendo a tabela errada (sobra da renomeação
+    # notas->lembretes) sem que nada acusasse — o "except Exception: return
+    # None" faz a leitura ausente parecer opcional, e nada verificava que ela
+    # DEVERIA ter valor quando o banco tem dado de verdade. Fechado aqui.
+    executar("lembrar", {"texto": "verificação automática"})
+    guardado = servidor._guardado()
+    conferir(guardado is not None, "_guardado() lê a tabela certa (lembretes, não notas)")
+    conferir(guardado and "lembrete guardado" in guardado, "conta lembrete no singular certo")
+
     # Sem bateria nem sensor térmico: a frase sai mesmo assim.
     vazio = Path(tempfile.mkdtemp())
     bat_orig, term_orig = servidor.CAMINHO_BATERIA, servidor.CAMINHO_TERMICO

@@ -115,12 +115,12 @@ def _ligado_desde() -> str | None:
 def _guardado() -> str | None:
     try:
         with conexao() as con:
-            notas = con.execute("SELECT count(*) n FROM notas").fetchone()["n"]
+            lembretes = con.execute("SELECT count(*) n FROM lembretes").fetchone()["n"]
             comandos = con.execute("SELECT count(*) n FROM historico").fetchone()["n"]
     except Exception:
         return None
     return (
-        f"{_plural(notas, 'anotação guardada', 'anotações guardadas')} e "
+        f"{_plural(lembretes, 'lembrete guardado', 'lembretes guardados')} e "
         f"{_plural(comandos, 'comando', 'comandos')} no histórico"
     )
 
